@@ -137,6 +137,193 @@ Run `npm run verify` after every non-trivial change.
 
 ---
 
+## Environment Setup (Codespaces / Cloud Shell)
+
+This section is for setting up a fresh Linux environment (GitHub Codespaces, Google Cloud Shell, or any Debian/Ubuntu host). Follow the steps in order.
+
+### Step 1 — Node.js ≥ 20.6.0
+
+pi-coding-agent requires Node.js ≥ 20.6.0. Install via nvm (recommended) or the NodeSource apt repo.
+
+```bash
+# Option A: nvm (works in both Codespaces and Cloud Shell)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+source ~/.bashrc        # or ~/.zshrc if using zsh
+nvm install 20
+nvm use 20
+nvm alias default 20
+
+# Verify
+node --version          # must be >= 20.6.0
+npm --version
+```
+
+### Step 2 — Clone pi-mono (required dependency)
+
+`@mariozechner/pi-coding-agent` is a file-local dependency at `../../repos/pi-mono/packages/coding-agent`
+relative to this repo. The following workspace layout is required:
+
+```
+<workspace>/
+├── apps/
+│   └── canvas-chat/   ← this repo (already cloned)
+└── repos/
+    └── pi-mono/       ← clone here
+```
+
+```bash
+# From the directory that contains apps/canvas-chat:
+cd "$(dirname "$(pwd)")"      # go up to <workspace>/apps parent
+mkdir -p repos
+git clone https://github.com/mariozechner/pi-mono.git repos/pi-mono
+
+# Build pi-coding-agent (required — the file dep points to dist/)
+cd repos/pi-mono/packages/coding-agent
+npm install
+npm run build
+
+# Back to canvas-chat
+cd -
+```
+
+### Step 3 — Install app dependencies
+
+```bash
+cd apps/canvas-chat      # or wherever canvas-chat was cloned
+npm install
+```
+
+This installs Next.js, React, uuid, and links `@mariozechner/pi-coding-agent` from the local pi-mono clone.
+
+### Step 4 — Authenticate pi-coding-agent (Codex / OpenAI)
+
+pi-coding-agent stores OAuth credentials at `~/.pi/agent/auth.json`.
+
+**Option A — Copy credentials from your local machine (recommended for Codespaces)**
+
+On your local machine:
+```bash
+cat ~/.pi/agent/auth.json
+```
+
+In the remote environment:
+```bash
+mkdir -p ~/.pi/agent
+cat > ~/.pi/agent/auth.json << 'EOF'
+<paste the JSON content from your local machine here>
+EOF
+chmod 600 ~/.pi/agent/auth.json
+```
+
+To automate this in GitHub Codespaces: store the contents of `auth.json` as a
+[Codespaces secret](https://docs.github.com/en/codespaces/managing-your-codespaces/managing-encrypted-secrets-for-your-codespaces)
+named `PI_AUTH_JSON`, then in your `devcontainer.json` postCreateCommand:
+```bash
+mkdir -p ~/.pi/agent && echo "$PI_AUTH_JSON" > ~/.pi/agent/auth.json && chmod 600 ~/.pi/agent/auth.json
+```
+
+**Option B — Interactive login (requires a browser)**
+
+```bash
+# Install pi globally first
+npm install -g @mariozechner/pi-coding-agent
+
+# Launch pi interactively and run /login
+pi
+# Inside the TUI, type: /login
+# Select "openai-codex" and follow the OAuth flow
+```
+
+**Option C — API key (fallback)**
+
+If you have an OpenAI API key you can set it as an env var instead of OAuth:
+```bash
+export OPENAI_API_KEY=sk-...
+# Add to ~/.bashrc to persist across sessions
+echo 'export OPENAI_API_KEY=sk-...' >> ~/.bashrc
+```
+
+### Step 5 — Install agent-browser (for verification only)
+
+Only needed if you want to run the 15-phase verification suite in `verification-plan.md`.
+
+```bash
+npm install -g agent-browser
+
+# Download Chrome for Testing (one-time, ~150 MB)
+agent-browser install
+
+# Verify
+agent-browser --version
+```
+
+### Step 6 — Install gh CLI (if not present)
+
+GitHub Codespaces ships with `gh`. Google Cloud Shell does not.
+
+```bash
+# Cloud Shell only
+curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+  | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] \
+  https://cli.github.com/packages stable main" \
+  | sudo tee /etc/apt/sources.list.d/github-cli.list
+sudo apt-get update && sudo apt-get install gh -y
+gh auth login
+```
+
+---
+
+## Environment Verification
+
+Run these checks to confirm the environment is ready before starting development.
+All commands should exit 0 and print the expected output.
+
+```bash
+# 1. Node.js version — must be >= 20.6.0
+node --version
+# Expected: v20.x.x or v22.x.x or v24.x.x
+
+# 2. npm available
+npm --version
+# Expected: 10.x.x or higher
+
+# 3. pi-coding-agent CLI available (installed by npm install in canvas-chat)
+./node_modules/.bin/pi --version 2>/dev/null || \
+  node node_modules/@mariozechner/pi-coding-agent/dist/cli.js --version 2>/dev/null || \
+  echo "MISSING — check Step 2 and 3"
+
+# 4. pi auth credentials present
+test -f ~/.pi/agent/auth.json && \
+  python3 -c "import json; d=json.load(open('$HOME/.pi/agent/auth.json')); print('providers:', list(d.keys()))" || \
+  echo "MISSING — follow Step 4"
+# Expected: providers: ['openai-codex'] or ['openai'] or similar (non-empty)
+
+# 5. pi-coding-agent dist/cli.js exists (needed by RpcClient)
+test -f node_modules/@mariozechner/pi-coding-agent/dist/cli.js && \
+  echo "OK — dist/cli.js found" || \
+  echo "MISSING — run: cd ../../repos/pi-mono/packages/coding-agent && npm run build"
+
+# 6. TypeScript and lint pass
+npm run verify
+# Expected: no errors
+
+# 7. Dev server starts (ctrl+C to stop after confirming)
+timeout 10 npm run dev 2>&1 | grep -E "Ready|error|Error" | head -3
+# Expected: ✓ Ready in ...ms
+
+# 8. Sessions API responds (run in a second terminal after dev server is up)
+curl -s -X POST http://localhost:3000/api/sessions | python3 -m json.tool
+# Expected: { "sessionId": "<uuid>" }
+
+# 9. agent-browser available (only if running verification)
+agent-browser --version 2>/dev/null || echo "NOT installed — see Step 5 (optional)"
+```
+
+A fully ready environment will pass all 9 checks (check 9 is optional).
+
+---
+
 ## Hard rules
 
 - Never call `RpcClient` from client components — it uses Node.js `child_process`
