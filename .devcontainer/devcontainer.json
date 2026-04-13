@@ -1,6 +1,6 @@
 {
   "name": "Canvas Chat",
-  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-24-bookworm",
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
 
   // Clone pi-mono as a sibling repo (required file dependency)
   // Result: /workspaces/repos/pi-mono  and  /workspaces/apps/canvas-chat
