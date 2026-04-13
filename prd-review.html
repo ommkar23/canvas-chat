@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Canvas Chat — PRD v1.0</title>
+<style>
+  :root {
+    --bg: #fafaf9;
+    --bg-card: #ffffff;
+    --bg-accent: #f5f4f2;
+    --border: #e5e3df;
+    --text: #1a1917;
+    --text-muted: #78746e;
+    --accent: #e85d2f;
+    --accent-light: #fff0eb;
+    --accent2: #2563eb;
+    --accent2-light: #eff6ff;
+    --green: #16a34a;
+    --green-light: #f0fdf4;
+    --tag-bg: #f0ede8;
+    --tag-text: #57534e;
+    --code-bg: #f5f4f2;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    font-size: 18px;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    padding: 2.5rem 4rem;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 2rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-left h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--text);
+  }
+  .header-left p {
+    font-size: 1rem;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+  }
+  .header-meta {
+    display: flex;
+    gap: 1rem;
+    flex-shrink: 0;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  .pill-draft { background: var(--accent-light); color: var(--accent); }
+  .pill-v1 { background: var(--tag-bg); color: var(--tag-text); }
+
+  /* ── Nav ── */
+  nav {
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    padding: 0 4rem;
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+  }
+  nav a {
+    text-decoration: none;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: 0.85rem 1.1rem;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  nav a:hover { color: var(--text); border-bottom-color: var(--border); }
+
+  /* ── Layout ── */
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4rem;
+  }
+
+  /* ── Section ── */
+  section { display: flex; flex-direction: column; gap: 1.5rem; }
+  .section-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  h2 {
+    font-size: 1.9rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.2;
+  }
+  h3 {
+    font-size: 1.15rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    margin-bottom: 0.25rem;
+  }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.75rem 2rem;
+  }
+  .card-grid {
+    display: grid;
+    gap: 1rem;
+  }
+  .card-grid-2 { grid-template-columns: 1fr 1fr; }
+  .card-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+  .card p, .card li {
+    font-size: 1rem;
+    color: var(--text-muted);
+    line-height: 1.65;
+  }
+  .card ul { padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.4rem; }
+  .card strong { color: var(--text); }
+
+  /* ── Goal cards ── */
+  .goal-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+  .goal-card .icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+  .goal-card .icon.green { background: var(--green-light); }
+  .goal-card .icon.red { background: var(--accent-light); }
+  .goal-card h4 { font-size: 1rem; font-weight: 650; margin-bottom: 0.2rem; }
+  .goal-card p { font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; }
+
+  /* ── Layout diagram ── */
+  .layout-diagram {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    display: grid;
+    grid-template-columns: 3fr 1fr;
+    gap: 1rem;
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 0.85rem;
+  }
+  .layout-pane {
+    background: var(--bg-card);
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 180px;
+  }
+  .layout-pane .pane-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .layout-pane .pane-size {
+    font-size: 1.8rem;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    color: var(--text);
+  }
+  .layout-pane.canvas { border-color: var(--accent); border-width: 2px; }
+  .layout-pane.input { border-color: var(--accent2); border-width: 2px; }
+
+  /* ── Flow steps ── */
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex-wrap: wrap;
+  }
+  .flow-step {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .flow-arrow {
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    padding: 0 0.5rem;
+  }
+  .flow-step.highlight { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+  .flow-step.blue { background: var(--accent2-light); border-color: var(--accent2); color: var(--accent2); }
+
+  /* ── Code block ── */
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.5rem;
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+    font-size: 0.82rem;
+    line-height: 1.7;
+    overflow-x: auto;
+    color: var(--text);
+  }
+
+  /* ── Table ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+    background: var(--bg-card);
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  th {
+    background: var(--bg-accent);
+    text-align: left;
+    padding: 0.8rem 1.25rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 0.85rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    line-height: 1.55;
+  }
+  tr:last-child td { border-bottom: none; }
+  td code, th code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.82em;
+    font-family: "SF Mono", "Fira Code", monospace;
+  }
+  td strong { font-weight: 650; }
+
+  /* ── Stat cards ── */
+  .stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .stat-card .stat-value {
+    font-size: 2.2rem;
+    font-weight: 800;
+    letter-spacing: -0.05em;
+    line-height: 1;
+    color: var(--text);
+  }
+  .stat-card .stat-label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  /* ── Arch diagram ── */
+  .arch {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: center;
+  }
+  .arch-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .arch-box {
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 0.55rem 1.25rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    background: var(--bg-card);
+    white-space: nowrap;
+  }
+  .arch-box.browser { border-color: var(--accent2); color: var(--accent2); background: var(--accent2-light); }
+  .arch-box.api { border-color: #7c3aed; color: #7c3aed; background: #f5f3ff; }
+  .arch-box.pi { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+  .arch-box.llm { border-color: var(--green); color: var(--green); background: var(--green-light); }
+  .arch-arrow { color: var(--text-muted); font-size: 1rem; writing-mode: vertical-lr; }
+  .arch-label { font-size: 0.7rem; color: var(--text-muted); font-weight: 500; }
+
+  /* ── Feedback states ── */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+  .status-unresolved { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+  .status-resolved { background: var(--green-light); color: var(--green); border: 1px solid #bbf7d0; }
+
+  /* ── Shortcut list ── */
+  .shortcuts { display: flex; flex-direction: column; gap: 0.5rem; }
+  .shortcut-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.65rem 1rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.95rem;
+  }
+  .shortcut-row span { color: var(--text-muted); }
+  kbd {
+    background: var(--bg-accent);
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    padding: 0.1rem 0.5rem;
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  /* ── Non-goal list ── */
+  .nongoal {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    text-decoration: line-through;
+    text-decoration-color: var(--border);
+  }
+
+  /* ── Divider ── */
+  hr { border: none; border-top: 1px solid var(--border); }
+
+  @media (max-width: 700px) {
+    .header { padding: 1.5rem; flex-direction: column; align-items: flex-start; }
+    nav { padding: 0 1rem; }
+    main { padding: 2rem 1rem 6rem; }
+    .card-grid-2, .card-grid-3 { grid-template-columns: 1fr; }
+    .layout-diagram { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-left">
+    <h1>Canvas Chat</h1>
+    <p>Product Requirements — v1.0 · Ommkar Pattnaik · April 2026</p>
+  </div>
+  <div class="header-meta">
+    <span class="pill pill-v1">v1.0</span>
+    <span class="pill pill-draft">Draft</span>
+  </div>
+</header>
+
+<!-- Nav -->
+<nav>
+  <a href="#overview">Overview</a>
+  <a href="#layout">Layout</a>
+  <a href="#canvas">Canvas</a>
+  <a href="#feedback">Feedback</a>
+  <a href="#agent">Agent</a>
+  <a href="#versions">Versions</a>
+  <a href="#shortcuts">Shortcuts</a>
+  <a href="#metrics">Metrics</a>
+</nav>
+
+<main>
+
+  <!-- Overview -->
+  <section id="overview">
+    <div class="section-label">01 — Overview</div>
+    <h2>A live design scratchpad connected to an AI coder.</h2>
+
+    <div class="card">
+      <p style="font-size:1.15rem; line-height:1.7;">Describe UI you want built. The agent generates self-contained HTML, rendered immediately in a live canvas. Mark up the render with Figma-style feedback annotations. Submit annotated HTML back to the agent for iterative refinement — all in one surface.</p>
+    </div>
+
+    <div class="card-grid card-grid-3">
+      <div class="stat-card">
+        <div class="stat-value">75/25</div>
+        <div class="stat-label">Canvas / input split</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">20</div>
+        <div class="stat-label">Version history slots</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">&lt;2s</div>
+        <div class="stat-label">Time to first rendered pixel</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Goals -->
+  <section id="goals">
+    <div class="section-label">02 — Goals &amp; Non-Goals</div>
+    <h2>What v1.0 ships.</h2>
+
+    <div class="card-grid card-grid-2">
+      <div style="display:flex;flex-direction:column;gap:0.75rem;">
+        <div class="goal-card">
+          <div class="icon green">✓</div>
+          <div><h4>Streaming HTML generation</h4><p>Prompt → agent streams raw HTML → canvas renders progressively in real time.</p></div>
+        </div>
+        <div class="goal-card">
+          <div class="icon green">✓</div>
+          <div><h4>Figma-style feedback layer</h4><p>Click any element to pin a feedback bubble. Feedback encodes into the HTML itself as <code>&lt;user-feedback&gt;</code> elements.</p></div>
+        </div>
+        <div class="goal-card">
+          <div class="icon green">✓</div>
+          <div><h4>Version history</h4><p>Every completed generation is saved. Revert to any prior canvas state non-destructively.</p></div>
+        </div>
+        <div class="goal-card">
+          <div class="icon green">✓</div>
+          <div><h4>Feedback-informed re-generation</h4><p>Agent reads <code>&lt;user-feedback&gt;</code> in context HTML, applies changes, and marks resolved items.</p></div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:0.75rem;">
+        <div class="nongoal">Multi-modal input (image/file upload)</div>
+        <div class="nongoal">Collaborative / multi-user annotations</div>
+        <div class="nongoal">Export or publish generated HTML</div>
+        <div class="nongoal">Separate CSS / JS files — HTML only</div>
+        <div class="nongoal">Mobile responsiveness of the shell</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Layout -->
+  <section id="layout">
+    <div class="section-label">03 — Layout</div>
+    <h2>Two panels. The canvas is the output.</h2>
+
+    <div class="layout-diagram">
+      <div class="layout-pane canvas">
+        <span class="pane-label">Canvas</span>
+        <span class="pane-size">75%</span>
+        <span style="font-size:0.8rem;color:var(--text-muted);text-align:center;">Sandboxed iframe · agent HTML renders here<br>Loading · Streaming · Feedback overlay</span>
+      </div>
+      <div class="layout-pane input">
+        <span class="pane-label">Input Panel</span>
+        <span class="pane-size">25%</span>
+        <span style="font-size:0.8rem;color:var(--text-muted);text-align:center;">Textarea + Submit<br>Feedback summary<br>Version switcher</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Shell Aesthetic</h3>
+      <p>Neutral, minimal — dark or light per system preference. The shell deliberately stays invisible; the canvas content defines its own design system. No styles bleed through the iframe boundary.</p>
+    </div>
+  </section>
+
+  <!-- Canvas -->
+  <section id="canvas">
+    <div class="section-label">04 — Canvas Rendering</div>
+    <h2>Sandboxed iframe. Progressive streaming render.</h2>
+
+    <div class="flow">
+      <div class="flow-step">Prompt submitted</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">Spinner</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">First token arrives</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step blue">srcdoc updates ~100ms</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">Stream closes</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">Version saved</div>
+    </div>
+
+    <div class="card-grid card-grid-2">
+      <div class="card">
+        <h3>iframe Sandbox</h3>
+        <ul>
+          <li><strong>allow-scripts</strong> — agent-generated JS runs</li>
+          <li><strong>allow-same-origin</strong> — shell can inject feedback overlay into iframe DOM</li>
+          <li>Agent CSS and JS cannot access the host shell</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Streaming Throttle</h3>
+        <ul>
+          <li>HTML chunks accumulated in memory as <code>text_delta</code> events</li>
+          <li><code>srcdoc</code> updated every ~100ms (capped)</li>
+          <li>Canvas visually builds in real time</li>
+          <li>Final HTML saved to version history on <code>agent_end</code></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Feedback -->
+  <section id="feedback">
+    <div class="section-label">05 — Feedback Mode</div>
+    <h2>Figma-style annotations baked into the HTML.</h2>
+
+    <div class="card-grid card-grid-3">
+      <div class="card">
+        <h3>Activation</h3>
+        <ul>
+          <li>Press <kbd>F</kbd> to toggle</li>
+          <li>Orange <strong>● Feedback Mode</strong> badge in top bar</li>
+          <li>Cursor becomes crosshair inside canvas</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Select &amp; Annotate</h3>
+        <ul>
+          <li>Hover → element highlights with accent border</li>
+          <li>Click → pinned dot anchors to element corner</li>
+          <li>Popover card opens with textarea + Add button</li>
+          <li>Multiple bubbles can coexist</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Bubble Controls</h3>
+        <ul>
+          <li><strong>Mark resolved</strong> — close bubble</li>
+          <li><strong>Mark unresolved</strong> — re-open</li>
+          <li><strong>Edit</strong> — update text before submit</li>
+          <li><strong>Delete</strong> — remove entirely</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>HTML Encoding Format</h3>
+      <p style="margin-bottom:1rem;">Feedback is encoded directly into the HTML — the agent reads it as context on the next prompt.</p>
+      <pre>&lt;user-feedback
+  data-feedback-id="fb-001"
+  data-status="unresolved"
+  data-timestamp="2026-04-13T14:15:00Z"
+&gt;
+  Make this button bigger and change the color to match the brand
+  &lt;div data-feedback-target&gt;
+    &lt;button class="cta-button"&gt;Get Started&lt;/button&gt;
+  &lt;/div&gt;
+&lt;/user-feedback&gt;</pre>
+    </div>
+
+    <div class="card">
+      <h3>Feedback Lifecycle</h3>
+      <table>
+        <thead><tr><th>Status</th><th>Who sets it</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="status-badge status-unresolved">● unresolved</span></td>
+            <td>User (on creation)</td>
+            <td>Feedback added, not yet acted on by agent</td>
+          </tr>
+          <tr>
+            <td><span class="status-badge status-resolved">✓ resolved</span></td>
+            <td>Agent (after re-generation)</td>
+            <td>Agent applied the change — bubble closes</td>
+          </tr>
+          <tr>
+            <td><span class="status-badge status-unresolved">● unresolved</span></td>
+            <td>User (re-opened)</td>
+            <td>User not satisfied — feedback re-enters next round</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Agent -->
+  <section id="agent">
+    <div class="section-label">06 — Agent Integration</div>
+    <h2>pi-coding-agent over stdio JSONL. SSE to browser.</h2>
+
+    <div class="arch">
+      <div class="arch-row"><div class="arch-box browser">Browser (React)</div></div>
+      <div class="arch-row">
+        <div class="arch-arrow">↕</div>
+        <div class="arch-label">HTTP / Server-Sent Events</div>
+      </div>
+      <div class="arch-row"><div class="arch-box api">Next.js API Route</div></div>
+      <div class="arch-row">
+        <div class="arch-arrow">↕</div>
+        <div class="arch-label">RpcClient · stdio JSONL · subprocess</div>
+      </div>
+      <div class="arch-row"><div class="arch-box pi">pi-coding-agent (cwd = sessions/&lt;chatId&gt;/)</div></div>
+      <div class="arch-row">
+        <div class="arch-arrow">↕</div>
+        <div class="arch-label">Codex API (pre-configured)</div>
+      </div>
+      <div class="arch-row"><div class="arch-box llm">Claude / LLM</div></div>
+    </div>
+
+    <div class="card-grid card-grid-2">
+      <div class="card">
+        <h3>Per-Session Folder</h3>
+        <ul>
+          <li>Each new chat → new <code>sessions/&lt;chatId&gt;/</code> directory</li>
+          <li>RpcClient spawned with <code>cwd</code> = that directory</li>
+          <li>Generations saved as <code>v1.html</code>, <code>v2.html</code>, …</li>
+          <li>Conversation JSONL stored at <code>~/.pi/agent/sessions/…</code></li>
+          <li><strong>Auth:</strong> Codex login pre-configured — nothing to set up</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Streaming Events</h3>
+        <ul>
+          <li><code>agent_start</code> → show spinner</li>
+          <li><code>message_update { text_delta }</code> → accumulate HTML</li>
+          <li><code>turn_end</code> → finalize render</li>
+          <li><code>agent_end</code> → save version, write file</li>
+          <li><code>steer()</code> / <code>abort()</code> — cancel mid-stream</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Agent Contract — Input</h3>
+      <p style="margin-bottom:1rem;">Each prompt sends both the user's instruction and the full annotated canvas HTML:</p>
+      <pre>{
+  "prompt": "&lt;user text&gt;\n\nCurrent canvas HTML:\n&lt;full iframe HTML with &lt;user-feedback&gt; elements&gt;"
+}</pre>
+    </div>
+
+    <div class="card">
+      <h3>System Prompt</h3>
+      <pre>You are an HTML generation agent. Your sole output is a complete,
+self-contained HTML document — including all CSS and JavaScript inline.
+Do not output markdown, prose, or code fences.
+When the input HTML contains &lt;user-feedback&gt; elements, read the feedback
+text, apply the requested changes to the wrapped element, and set
+data-status="resolved" on those elements in your output HTML.
+Preserve all &lt;user-feedback&gt; elements unless the user explicitly asks
+to remove them.</pre>
+    </div>
+
+    <div class="card">
+      <h3>RpcClient Key Methods</h3>
+      <table>
+        <thead><tr><th>Method</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>start()</code> / <code>stop()</code></td><td>Spawn / kill subprocess</td></tr>
+          <tr><td><code>prompt(message)</code></td><td>Send user message — fires streaming events</td></tr>
+          <tr><td><code>steer(message)</code></td><td>Interrupt mid-stream with new instruction</td></tr>
+          <tr><td><code>newSession()</code></td><td>Reset conversation context (new chat)</td></tr>
+          <tr><td><code>getState()</code></td><td>Session ID, file path, model, streaming flag</td></tr>
+          <tr><td><code>onEvent(listener)</code></td><td>Subscribe to all streaming events</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Versions -->
+  <section id="versions">
+    <div class="section-label">07 — Version History</div>
+    <h2>In-memory ring buffer. 20 slots. Non-destructive restores.</h2>
+
+    <div class="card-grid card-grid-2">
+      <div class="card">
+        <h3>Version Entry</h3>
+        <pre>{
+  "version": 3,
+  "timestamp": "2026-04-13T14:22:00Z",
+  "prompt": "Make the hero section full width",
+  "html": "&lt;!DOCTYPE html&gt;..."
+}</pre>
+      </div>
+      <div class="card">
+        <h3>Version Switcher UI</h3>
+        <ul>
+          <li>Compact strip or dropdown in input panel</li>
+          <li>Shows: version #, timestamp, truncated prompt</li>
+          <li>Click → read-only preview in canvas</li>
+          <li><strong>Restore</strong> → set as working canvas</li>
+          <li>Restoring does not delete newer versions</li>
+          <li>Oldest versions evicted when &gt;20 (FIFO)</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Shortcuts -->
+  <section id="shortcuts">
+    <div class="section-label">08 — Keyboard Shortcuts</div>
+    <h2>Keyboard-first controls.</h2>
+
+    <div class="shortcuts">
+      <div class="shortcut-row"><span>Toggle feedback mode</span><kbd>F</kbd></div>
+      <div class="shortcut-row"><span>Submit prompt</span><kbd>⌘ Enter</kbd></div>
+      <div class="shortcut-row"><span>Close feedback bubble / exit feedback mode</span><kbd>Esc</kbd></div>
+      <div class="shortcut-row"><span>Revert to previous version</span><kbd>⌘ Z</kbd></div>
+      <div class="shortcut-row"><span>Advance to next version</span><kbd>⌘ ⇧ Z</kbd></div>
+    </div>
+  </section>
+
+  <!-- Component Architecture -->
+  <section id="components">
+    <div class="section-label">09 — Component Architecture</div>
+    <h2>File structure.</h2>
+
+    <div class="card">
+      <pre>canvas-chat/
+├── shell/
+│   ├── CanvasPanel.tsx         iframe wrapper, loading/streaming state
+│   ├── InputPanel.tsx          textarea, submit, feedback summary list
+│   ├── VersionBar.tsx          version timeline / switcher
+│   └── TopBar.tsx              mode badge, shortcuts hint
+├── feedback/
+│   ├── FeedbackOverlay.tsx     injected into iframe DOM
+│   ├── FeedbackBubble.tsx      pinned dot + popover card
+│   ├── FeedbackStore.ts        in-memory feedback state
+│   └── htmlEncoder.ts          wraps elements with &lt;user-feedback&gt;
+├── agent/
+│   ├── rpcClient.ts            pi-coding-agent RpcClient wrapper + SSE bridge
+│   └── streamingRenderer.ts    iframe srcdoc throttle loop
+└── store/
+    └── versionHistory.ts       in-memory version ring buffer (20 items)</pre>
+    </div>
+  </section>
+
+  <!-- Metrics -->
+  <section id="metrics">
+    <div class="section-label">10 — Success Metrics</div>
+    <h2>How v1.0 is measured.</h2>
+
+    <div class="card-grid card-grid-2">
+      <div class="card">
+        <table>
+          <thead><tr><th>Metric</th><th>Target</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Time to first rendered pixel</strong></td><td>&lt;2s from prompt submit</td></tr>
+            <tr><td><strong>Feedback resolution rate</strong></td><td>Agent resolves ≥80% of annotated items in next generation</td></tr>
+            <tr><td><strong>Version fidelity</strong></td><td>Any prior version restores to identical canvas render</td></tr>
+            <tr><td><strong>Feedback persistence</strong></td><td><code>&lt;user-feedback&gt;</code> elements survive agent re-generation without data loss</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card" style="display:flex;flex-direction:column;gap:1rem;">
+        <h3>Open Questions (v2+)</h3>
+        <ul>
+          <li>Feedback overlay injection — must not conflict with agent scripts</li>
+          <li>Z-index management — bubbles must always render above agent HTML</li>
+          <li>Feedback re-anchoring when agent JS replaces DOM nodes</li>
+          <li>Image / file input — deferred to v2</li>
+          <li>Export / publish — deferred to v2</li>
+          <li>Collaborative annotations — deferred to v3</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+</body>
+</html>

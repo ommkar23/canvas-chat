@@ -42,7 +42,3 @@ next-env.d.ts
 
 # canvas-chat: generated session data
 /sessions/
-
-# canvas-chat: local prd files
-prd-review.html
-verification-plan.md
