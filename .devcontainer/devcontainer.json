@@ -1,0 +1,46 @@
+{
+  "name": "Canvas Chat",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-24-bookworm",
+
+  // Clone pi-mono as a sibling repo (required file dependency)
+  // Result: /workspaces/repos/pi-mono  and  /workspaces/apps/canvas-chat
+  "initializeCommand": "mkdir -p ${localWorkspaceFolder}/../../repos",
+  "postCreateCommand": ".devcontainer/setup.sh",
+
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "Canvas Chat dev server",
+      "onAutoForward": "openBrowser"
+    }
+  },
+
+  "secrets": {
+    // Paste the full contents of ~/.pi/agent/auth.json from your local machine.
+    // Get it with: cat ~/.pi/agent/auth.json
+    "PI_AUTH_JSON": {
+      "description": "Contents of ~/.pi/agent/auth.json (pi-coding-agent OAuth credentials)"
+    }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "ms-vscode.vscode-typescript-next"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "typescript.tsdk": "node_modules/typescript/lib"
+      }
+    }
+  },
+
+  "remoteEnv": {
+    // Uncomment and set if using an API key instead of OAuth (PI_AUTH_JSON takes priority)
+    // "OPENAI_API_KEY": "${localEnv:OPENAI_API_KEY}"
+  }
+}

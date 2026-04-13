@@ -137,9 +137,38 @@ Run `npm run verify` after every non-trivial change.
 
 ---
 
-## Environment Setup (Codespaces / Cloud Shell)
+## Dev Container (recommended for Codespaces)
 
-This section is for setting up a fresh Linux environment (GitHub Codespaces, Google Cloud Shell, or any Debian/Ubuntu host). Follow the steps in order.
+A ready-to-use dev container is included at `.devcontainer/`. It handles all
+setup automatically — Node.js 24, pi-mono clone + build, npm install, Chrome
+install for agent-browser, and pi auth injection.
+
+**One-time setup before opening in Codespaces:**
+
+1. Copy your local pi credentials:
+   ```bash
+   cat ~/.pi/agent/auth.json   # copy this JSON
+   ```
+2. Go to **github.com → Settings → Codespaces → Secrets** and add:
+   - Name: `PI_AUTH_JSON`
+   - Value: the JSON you copied
+
+3. Open the repo in Codespaces — the container builds and `setup.sh` runs automatically.
+
+Port 3000 is forwarded and opens in the browser when you run `npm run dev`.
+
+**Manual rebuild** (if you change `.devcontainer/`):
+```bash
+# In VS Code command palette:
+# > Dev Containers: Rebuild Container
+```
+
+---
+
+## Environment Setup (Cloud Shell / manual)
+
+For Google Cloud Shell or any Debian/Ubuntu host where you can't use the dev container.
+Follow the steps in order.
 
 ### Step 1 — Node.js ≥ 20.6.0
 
