@@ -15,14 +15,6 @@
     }
   },
 
-  "secrets": {
-    // Paste the full contents of ~/.pi/agent/auth.json from your local machine.
-    // Get it with: cat ~/.pi/agent/auth.json
-    "PI_AUTH_JSON": {
-      "description": "Contents of ~/.pi/agent/auth.json (pi-coding-agent OAuth credentials)"
-    }
-  },
-
   "customizations": {
     "vscode": {
       "extensions": [

@@ -140,22 +140,24 @@ Run `npm run verify` after every non-trivial change.
 ## Dev Container (recommended for Codespaces)
 
 A ready-to-use dev container is included at `.devcontainer/`. It handles all
-setup automatically — Node.js 24, pi-mono clone + build, npm install, Chrome
-install for agent-browser, and pi auth injection.
+setup automatically — Node.js 24, pi-mono clone + build, npm install, and
+Chrome install for agent-browser.
 
-**One-time setup before opening in Codespaces:**
+**Getting started in Codespaces:**
 
-1. Copy your local pi credentials:
+1. Open the repo in Codespaces — the container builds and `setup.sh` runs automatically.
+2. Once setup finishes, authenticate pi:
    ```bash
-   cat ~/.pi/agent/auth.json   # copy this JSON
+   pi
+   # Inside the TUI type: /login
+   # Select "openai-codex" and complete the OAuth flow
    ```
-2. Go to **github.com → Settings → Codespaces → Secrets** and add:
-   - Name: `PI_AUTH_JSON`
-   - Value: the JSON you copied
+3. Start the dev server:
+   ```bash
+   npm run dev
+   ```
 
-3. Open the repo in Codespaces — the container builds and `setup.sh` runs automatically.
-
-Port 3000 is forwarded and opens in the browser when you run `npm run dev`.
+Port 3000 is forwarded and opens in the browser automatically.
 
 **Manual rebuild** (if you change `.devcontainer/`):
 ```bash
@@ -226,46 +228,19 @@ This installs Next.js, React, uuid, and links `@mariozechner/pi-coding-agent` fr
 
 ### Step 4 — Authenticate pi-coding-agent (Codex / OpenAI)
 
-pi-coding-agent stores OAuth credentials at `~/.pi/agent/auth.json`.
-
-**Option A — Copy credentials from your local machine (recommended for Codespaces)**
-
-On your local machine:
-```bash
-cat ~/.pi/agent/auth.json
-```
-
-In the remote environment:
-```bash
-mkdir -p ~/.pi/agent
-cat > ~/.pi/agent/auth.json << 'EOF'
-<paste the JSON content from your local machine here>
-EOF
-chmod 600 ~/.pi/agent/auth.json
-```
-
-To automate this in GitHub Codespaces: store the contents of `auth.json` as a
-[Codespaces secret](https://docs.github.com/en/codespaces/managing-your-codespaces/managing-encrypted-secrets-for-your-codespaces)
-named `PI_AUTH_JSON`, then in your `devcontainer.json` postCreateCommand:
-```bash
-mkdir -p ~/.pi/agent && echo "$PI_AUTH_JSON" > ~/.pi/agent/auth.json && chmod 600 ~/.pi/agent/auth.json
-```
-
-**Option B — Interactive login (requires a browser)**
+**Option A — Interactive login**
 
 ```bash
-# Install pi globally first
-npm install -g @mariozechner/pi-coding-agent
-
-# Launch pi interactively and run /login
 pi
 # Inside the TUI, type: /login
 # Select "openai-codex" and follow the OAuth flow
 ```
 
-**Option C — API key (fallback)**
+Credentials are stored at `~/.pi/agent/auth.json` and persist for the lifetime of the Codespace.
 
-If you have an OpenAI API key you can set it as an env var instead of OAuth:
+**Option B — API key (fallback)**
+
+If you have an OpenAI API key, set it as an env var instead of OAuth:
 ```bash
 export OPENAI_API_KEY=sk-...
 # Add to ~/.bashrc to persist across sessions

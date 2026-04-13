@@ -44,20 +44,16 @@ AUTH_DIR="${HOME}/.pi/agent"
 AUTH_FILE="${AUTH_DIR}/auth.json"
 mkdir -p "${AUTH_DIR}"
 
-if [ -n "${PI_AUTH_JSON:-}" ]; then
-  echo "${PI_AUTH_JSON}" > "${AUTH_FILE}"
-  chmod 600 "${AUTH_FILE}"
-  echo "  ✓ auth.json written from PI_AUTH_JSON secret"
-elif [ -f "${AUTH_FILE}" ] && [ "$(cat "${AUTH_FILE}")" != "{}" ]; then
+if [ -f "${AUTH_FILE}" ] && python3 -c "import json,sys; d=json.load(open('${AUTH_FILE}')); sys.exit(0 if d else 1)" 2>/dev/null; then
   echo "  ✓ auth.json already present"
 else
-  echo "  ⚠ PI_AUTH_JSON secret not set and no auth.json found"
-  echo "    To fix: set the PI_AUTH_JSON Codespaces secret to the contents of"
-  echo "    ~/.pi/agent/auth.json from your local machine, then rebuild the container."
-  echo "    Alternatively, run 'pi' inside the container and use /login."
-  # Write empty placeholder so pi doesn't crash on start
+  # Write empty placeholder so pi doesn't crash before login
   echo "{}" > "${AUTH_FILE}"
   chmod 600 "${AUTH_FILE}"
+  echo "  ⚠ Not authenticated yet."
+  echo "    After setup, run: pi"
+  echo "    Then inside the TUI type: /login"
+  echo "    Select 'openai-codex' and complete the OAuth flow."
 fi
 
 # ── 4. agent-browser + Chrome ─────────────────────────────────────────────────
@@ -102,7 +98,7 @@ if [ -f "${AUTH_FILE}" ] && python3 -c "import json,sys; d=json.load(open('${AUT
   PROVIDERS=$(python3 -c "import json; d=json.load(open('${AUTH_FILE}')); print(', '.join(d.keys()) or 'none')" 2>/dev/null)
   echo "  ✓ pi auth — providers: ${PROVIDERS}"
 else
-  echo "  ⚠ pi auth not configured (see Step 3 above)"
+  echo "  ⚠ pi not authenticated — run 'pi' then /login to complete OAuth"
 fi
 
 # typecheck + lint
