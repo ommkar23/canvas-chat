@@ -1,9 +1,10 @@
 {
   "name": "Canvas Chat",
   "image": "mcr.microsoft.com/devcontainers/universal:2",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/apps/canvas-chat,type=bind,consistency=cached",
+  "workspaceFolder": "/workspaces/apps/canvas-chat",
 
-  // setup.sh derives the exact pi-mono location from package.json's file dependency.
-  // Keeping initializeCommand minimal avoids assuming a specific Codespaces checkout layout.
+  // Match the workspace layout expected by the file: dependency in package.json.
   "initializeCommand": "true",
   "postCreateCommand": ".devcontainer/setup.sh",
 
