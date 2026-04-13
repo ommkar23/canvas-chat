@@ -9,7 +9,7 @@ if [ -z "${PI_AGENT_DEP_PATH}" ] || [[ "${PI_AGENT_DEP_PATH}" != file:* ]]; then
   exit 1
 fi
 
-PI_MONO_DIR="$(node -p "const path=require('node:path'); const dep=require('./package.json').dependencies['@mariozechner/pi-coding-agent']; path.resolve(process.cwd(), dep.replace(/^file:/, ''), '../../..')" 2>/dev/null)"
+PI_MONO_DIR="$(node -p "const path=require('node:path'); const dep=require('./package.json').dependencies['@mariozechner/pi-coding-agent']; path.resolve(process.cwd(), dep.replace(/^file:/, ''), '../..')" 2>/dev/null)"
 PI_MONO_PARENT="$(dirname "${PI_MONO_DIR}")"
 PI_MONO_GIT_URL="${PI_MONO_GIT_URL:-https://github.com/badlogic/pi-mono.git}"
 PI_MONO_FALLBACK_URL="https://github.com/mariozechner/pi-mono.git"
