@@ -2,9 +2,9 @@
   "name": "Canvas Chat",
   "image": "mcr.microsoft.com/devcontainers/universal:2",
 
-  // Clone pi-mono as a sibling repo (required file dependency)
-  // Result: /workspaces/repos/pi-mono  and  /workspaces/apps/canvas-chat
-  "initializeCommand": "mkdir -p ${localWorkspaceFolder}/../../repos",
+  // setup.sh derives the exact pi-mono location from package.json's file dependency.
+  // Keeping initializeCommand minimal avoids assuming a specific Codespaces checkout layout.
+  "initializeCommand": "true",
   "postCreateCommand": ".devcontainer/setup.sh",
 
   "forwardPorts": [3000],

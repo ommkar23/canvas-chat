@@ -1,9 +1,36 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-WORKSPACE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CANVAS_CHAT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PI_MONO_DIR="${WORKSPACE_ROOT}/repos/pi-mono"
+PI_AGENT_DEP_PATH="$(node -p "require('./package.json').dependencies['@mariozechner/pi-coding-agent']" 2>/dev/null)"
+
+if [ -z "${PI_AGENT_DEP_PATH}" ] || [[ "${PI_AGENT_DEP_PATH}" != file:* ]]; then
+  echo "  ✗ Could not resolve file dependency for @mariozechner/pi-coding-agent"
+  exit 1
+fi
+
+PI_MONO_DIR="$(node -p "const path=require('node:path'); const dep=require('./package.json').dependencies['@mariozechner/pi-coding-agent']; path.resolve(process.cwd(), dep.replace(/^file:/, ''), '../../..')" 2>/dev/null)"
+PI_MONO_PARENT="$(dirname "${PI_MONO_DIR}")"
+PI_MONO_GIT_URL="${PI_MONO_GIT_URL:-https://github.com/badlogic/pi-mono.git}"
+PI_MONO_FALLBACK_URL="https://github.com/mariozechner/pi-mono.git"
+
+clone_pi_mono() {
+  local target_dir="$1"
+
+  mkdir -p "${PI_MONO_PARENT}"
+
+  if git clone "${PI_MONO_GIT_URL}" "${target_dir}"; then
+    return 0
+  fi
+
+  if [ "${PI_MONO_GIT_URL}" != "${PI_MONO_FALLBACK_URL}" ]; then
+    echo "  Primary clone failed, trying legacy repo URL..."
+    git clone "${PI_MONO_FALLBACK_URL}" "${target_dir}"
+    return $?
+  fi
+
+  return 1
+}
 
 echo ""
 echo "╔══════════════════════════════════════╗"
@@ -13,11 +40,11 @@ echo ""
 
 # ── 1. pi-mono ────────────────────────────────────────────────────────────────
 echo "▶ Step 1/5 — pi-mono"
+echo "  Using pi-mono checkout at ${PI_MONO_DIR}"
 
 if [ ! -d "${PI_MONO_DIR}/.git" ]; then
   echo "  Cloning pi-mono..."
-  mkdir -p "${WORKSPACE_ROOT}/repos"
-  git clone https://github.com/mariozechner/pi-mono.git "${PI_MONO_DIR}"
+  clone_pi_mono "${PI_MONO_DIR}"
 else
   echo "  pi-mono already cloned — pulling latest"
   git -C "${PI_MONO_DIR}" pull --ff-only || echo "  (pull skipped — diverged or detached)"
@@ -68,8 +95,11 @@ else
 fi
 
 echo "  Installing Chrome for Testing + system deps..."
-agent-browser install --with-deps 2>&1 | tail -5
-echo "  ✓ agent-browser ready"
+if agent-browser install --with-deps 2>&1 | tail -5; then
+  echo "  ✓ agent-browser ready"
+else
+  echo "  ⚠ agent-browser setup failed — continue manually if you need browser verification"
+fi
 
 # ── 5. Verify ─────────────────────────────────────────────────────────────────
 echo ""

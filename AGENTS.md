@@ -206,7 +206,7 @@ relative to this repo. The following workspace layout is required:
 # From the directory that contains apps/canvas-chat:
 cd "$(dirname "$(pwd)")"      # go up to <workspace>/apps parent
 mkdir -p repos
-git clone https://github.com/mariozechner/pi-mono.git repos/pi-mono
+git clone https://github.com/badlogic/pi-mono.git repos/pi-mono
 
 # Build pi-coding-agent (required — the file dep points to dist/)
 cd repos/pi-mono/packages/coding-agent
