@@ -2,34 +2,28 @@
 set -euo pipefail
 
 CANVAS_CHAT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PI_AGENT_DEP_PATH="$(node -p "require('./package.json').dependencies['@mariozechner/pi-coding-agent']" 2>/dev/null)"
-
-if [ -z "${PI_AGENT_DEP_PATH}" ] || [[ "${PI_AGENT_DEP_PATH}" != file:* ]]; then
-  echo "  ✗ Could not resolve file dependency for @mariozechner/pi-coding-agent"
-  exit 1
-fi
-
-PI_MONO_DIR="$(node -p "const path=require('node:path'); const dep=require('./package.json').dependencies['@mariozechner/pi-coding-agent']; path.resolve(process.cwd(), dep.replace(/^file:/, ''), '../..')" 2>/dev/null)"
-PI_MONO_PARENT="$(dirname "${PI_MONO_DIR}")"
+WORKSPACE_ROOT="$(cd "${CANVAS_CHAT_DIR}/../.." && pwd)"
+REFERENCE_REPOS_DIR="${WORKSPACE_ROOT}/repos"
+PI_MONO_DIR="${REFERENCE_REPOS_DIR}/pi-mono"
+AGENT_BROWSER_REF_DIR="${REFERENCE_REPOS_DIR}/agent-browser"
 PI_MONO_GIT_URL="${PI_MONO_GIT_URL:-https://github.com/badlogic/pi-mono.git}"
-PI_MONO_FALLBACK_URL="https://github.com/mariozechner/pi-mono.git"
+AGENT_BROWSER_GIT_URL="${AGENT_BROWSER_GIT_URL:-https://github.com/vercel-labs/agent-browser.git}"
+export PATH="${HOME}/.local/bin:${PATH}"
 
-clone_pi_mono() {
-  local target_dir="$1"
+sync_reference_repo() {
+  local name="$1"
+  local git_url="$2"
+  local target_dir="$3"
 
-  mkdir -p "${PI_MONO_PARENT}"
+  mkdir -p "${REFERENCE_REPOS_DIR}"
 
-  if git clone "${PI_MONO_GIT_URL}" "${target_dir}"; then
-    return 0
+  if [ ! -d "${target_dir}/.git" ]; then
+    echo "  Cloning ${name} reference..."
+    git clone "${git_url}" "${target_dir}"
+  else
+    echo "  ${name} reference already cloned — pulling latest"
+    git -C "${target_dir}" pull --ff-only || echo "  (${name} pull skipped — diverged or detached)"
   fi
-
-  if [ "${PI_MONO_GIT_URL}" != "${PI_MONO_FALLBACK_URL}" ]; then
-    echo "  Primary clone failed, trying legacy repo URL..."
-    git clone "${PI_MONO_FALLBACK_URL}" "${target_dir}"
-    return $?
-  fi
-
-  return 1
 }
 
 echo ""
@@ -38,23 +32,12 @@ echo "║   Canvas Chat — environment setup   ║"
 echo "╚══════════════════════════════════════╝"
 echo ""
 
-# ── 1. pi-mono ────────────────────────────────────────────────────────────────
-echo "▶ Step 1/5 — pi-mono"
-echo "  Using pi-mono checkout at ${PI_MONO_DIR}"
-
-if [ ! -d "${PI_MONO_DIR}/.git" ]; then
-  echo "  Cloning pi-mono..."
-  clone_pi_mono "${PI_MONO_DIR}"
-else
-  echo "  pi-mono already cloned — pulling latest"
-  git -C "${PI_MONO_DIR}" pull --ff-only || echo "  (pull skipped — diverged or detached)"
-fi
-
-echo "  Building @mariozechner/pi-coding-agent..."
-cd "${PI_MONO_DIR}/packages/coding-agent"
-npm install --prefer-offline 2>&1 | tail -3
-npm run build 2>&1 | tail -3
-echo "  ✓ pi-coding-agent built"
+# ── 1. reference repos ────────────────────────────────────────────────────────
+echo "▶ Step 1/5 — reference repos"
+echo "  Reference repos live under ${REFERENCE_REPOS_DIR}"
+sync_reference_repo "pi-mono" "${PI_MONO_GIT_URL}" "${PI_MONO_DIR}"
+sync_reference_repo "agent-browser" "${AGENT_BROWSER_GIT_URL}" "${AGENT_BROWSER_REF_DIR}"
+echo "  ✓ reference repos ready"
 
 # ── 2. canvas-chat dependencies ───────────────────────────────────────────────
 echo ""
@@ -83,9 +66,22 @@ else
   echo "    Select 'openai-codex' and complete the OAuth flow."
 fi
 
-# ── 4. agent-browser + Chrome ─────────────────────────────────────────────────
+# ── 4. agent CLIs ─────────────────────────────────────────────────────────────
 echo ""
-echo "▶ Step 4/5 — agent-browser"
+echo "▶ Step 4/6 — agent CLIs"
+
+if command -v codex &> /dev/null; then
+  echo "  codex already installed — $(codex --version 2>/dev/null || echo 'version unknown')"
+else
+  echo "  Installing Codex CLI..."
+  npm install -g @openai/codex@latest 2>&1 | tail -3
+fi
+
+echo "  ✓ agent CLIs ready"
+
+# ── 5. agent-browser + Chrome ─────────────────────────────────────────────────
+echo ""
+echo "▶ Step 5/6 — agent-browser"
 
 if command -v agent-browser &> /dev/null; then
   echo "  agent-browser already installed — $(agent-browser --version 2>/dev/null || echo 'version unknown')"
@@ -101,9 +97,9 @@ else
   echo "  ⚠ agent-browser setup failed — continue manually if you need browser verification"
 fi
 
-# ── 5. Verify ─────────────────────────────────────────────────────────────────
+# ── 6. Verify ─────────────────────────────────────────────────────────────────
 echo ""
-echo "▶ Step 5/5 — verification"
+echo "▶ Step 6/6 — verification"
 
 cd "${CANVAS_CHAT_DIR}"
 
@@ -118,9 +114,17 @@ fi
 
 # dist/cli.js
 if [ -f "${CANVAS_CHAT_DIR}/node_modules/@mariozechner/pi-coding-agent/dist/cli.js" ]; then
-  echo "  ✓ pi-coding-agent dist/cli.js present"
+  PI_AGENT_VERSION="$(node -p "require('./node_modules/@mariozechner/pi-coding-agent/package.json').version" 2>/dev/null || echo 'unknown')"
+  echo "  ✓ pi-coding-agent dist/cli.js present (${PI_AGENT_VERSION})"
 else
-  echo "  ✗ pi-coding-agent dist/cli.js missing — build may have failed"
+  echo "  ✗ pi-coding-agent dist/cli.js missing — npm install may have failed"
+fi
+
+# Agent CLIs
+if command -v codex &> /dev/null; then
+  echo "  ✓ codex — $(codex --version 2>/dev/null || echo 'version unknown')"
+else
+  echo "  ✗ codex missing"
 fi
 
 # auth.json non-empty
