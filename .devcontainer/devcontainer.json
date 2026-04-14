@@ -30,8 +30,7 @@
   },
 
   "remoteEnv": {
-    "NVM_DIR": "/usr/local/share/nvm",
     "PNPM_HOME": "/usr/local/share/pnpm",
-    "PATH": "/usr/local/share/pnpm:/usr/local/share/nvm/versions/node/v24.14.1/bin:${containerEnv:PATH}"
+    "PATH": "/usr/local/share/pnpm:${containerEnv:PATH}"
   }
 }
