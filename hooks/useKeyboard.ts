@@ -55,12 +55,17 @@ export function useKeyboard({
       if (isInput) return;
 
       // F — feedback toggle
-      if (e.key === 'f' || e.key === 'F') {
+      if ((e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
         onFeedbackToggle?.();
       }
     }
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, true);
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true);
+      document.removeEventListener('keydown', handleKeyDown, true);
+    };
   }, [onFeedbackToggle, onSubmit, onEscape, onVersionPrev, onVersionNext]);
 }

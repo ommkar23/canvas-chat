@@ -23,7 +23,14 @@ export const OVERLAY_SCRIPT = `
     window.parent.postMessage({
       type: '__feedback-click__',
       targetId: id,
-      rect: { top: rect.top, left: rect.left, width: rect.width, height: rect.height, bottom: rect.bottom, right: rect.right }
+      rect: {
+        top: e.clientY,
+        left: e.clientX,
+        width: rect.width,
+        height: rect.height,
+        bottom: e.clientY,
+        right: e.clientX
+      }
     }, '*');
   }
 

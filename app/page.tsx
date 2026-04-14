@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { VersionEntry, FeedbackItem, SSEEvent } from '@/types';
+import type { VersionEntry, FeedbackItem, SSEEvent, ElementRect } from '@/types';
 import { TopBar } from '@/components/shell/TopBar';
 import { CanvasPanel } from '@/components/shell/CanvasPanel';
 import { InputPanel } from '@/components/shell/InputPanel';
@@ -13,9 +13,11 @@ import {
   extractHtml,
   setFeedbackStatus,
   removeFeedback,
+  updateFeedbackText,
 } from '@/lib/feedback/htmlEncoder';
 
 const MAX_VERSIONS = 20;
+const DEFAULT_FEEDBACK_PROMPT = 'Please incorporate all unresolved user feedback in the current canvas.';
 
 export default function Home() {
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -25,22 +27,16 @@ export default function Home() {
   const [versions, setVersions] = useState<VersionEntry[]>([]);
   const [currentVersionIndex, setCurrentVersionIndex] = useState(-1);
   const [feedbackItems, setFeedbackItems] = useState<FeedbackItem[]>([]);
-  // Stores the pending targetId for feedback confirm; not rendered so we use a ref.
   const activeFeedbackTargetRef = useRef<{ targetId: string } | null>(null);
   const [activeBubbleId, setActiveBubbleId] = useState<string | null>(null);
   const [iframeRect, setIframeRect] = useState<DOMRect | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [promptText, setPromptText] = useState('');
 
-  // Ref to the iframe element so we can access contentDocument for feedback ops
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
-
-  // Throttled HTML update during streaming
-  const pendingHtmlRef = useRef('');
-  const streamIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const appRootRef = useRef<HTMLDivElement | null>(null);
   const lastPromptRef = useRef('');
 
-  // Initialize session on mount
   useEffect(() => {
     fetch('/api/sessions', { method: 'POST' })
       .then((res) => res.json())
@@ -48,28 +44,53 @@ export default function Home() {
       .catch(() => setError('Failed to create session'));
   }, []);
 
-  // Find iframe element in DOM for feedback operations
   useEffect(() => {
     const iframe = document.querySelector<HTMLIFrameElement>('[data-testid="canvas-iframe"]');
     iframeRef.current = iframe;
   });
 
+  useEffect(() => {
+    if (!isFeedbackMode) {
+      setActiveBubbleId(null);
+      activeFeedbackTargetRef.current = null;
+      appRootRef.current?.focus();
+    }
+  }, [isFeedbackMode]);
+
+  const enterViewMode = useCallback(() => {
+    setIsFeedbackMode(false);
+  }, []);
+
+  const enterFeedbackMode = useCallback(() => {
+    setIsFeedbackMode(true);
+  }, []);
+
+  const toggleFeedbackMode = useCallback(() => {
+    setIsFeedbackMode((value) => !value);
+  }, []);
+
   const handleIframeRectChange = useCallback((rect: DOMRect) => {
     setIframeRect(rect);
   }, []);
 
-  const handleSubmit = useCallback(
+  const clearPendingFeedbackTarget = useCallback(() => {
+    const targetId = activeFeedbackTargetRef.current?.targetId;
+    if (!targetId) return;
+
+    const contentDoc = iframeRef.current?.contentDocument;
+    contentDoc
+      ?.querySelector(`[data-feedback-target-id="${targetId}"]`)
+      ?.removeAttribute('data-feedback-target-id');
+    activeFeedbackTargetRef.current = null;
+  }, []);
+
+  const submitTurn = useCallback(
     async (prompt: string) => {
       if (!sessionId || isStreaming) return;
+
       lastPromptRef.current = prompt;
       setIsStreaming(true);
       setError(null);
-      pendingHtmlRef.current = '';
-
-      // Start throttled interval to batch srcdoc updates
-      streamIntervalRef.current = setInterval(() => {
-        setCurrentHtml(pendingHtmlRef.current);
-      }, 100);
 
       try {
         const response = await fetch('/api/agent', {
@@ -98,13 +119,7 @@ export default function Home() {
             if (!line.startsWith('data: ')) continue;
             try {
               const event = JSON.parse(line.slice(6)) as SSEEvent;
-              if (event.type === 'delta') {
-                pendingHtmlRef.current += event.html;
-              } else if (event.type === 'done') {
-                if (streamIntervalRef.current) {
-                  clearInterval(streamIntervalRef.current);
-                  streamIntervalRef.current = null;
-                }
+              if (event.type === 'done') {
                 const finalHtml = event.html;
                 setCurrentHtml(finalHtml);
                 setVersions((prev) => {
@@ -120,10 +135,6 @@ export default function Home() {
                 setCurrentVersionIndex(-1);
                 setIsStreaming(false);
               } else if (event.type === 'error') {
-                if (streamIntervalRef.current) {
-                  clearInterval(streamIntervalRef.current);
-                  streamIntervalRef.current = null;
-                }
                 setError(event.message);
                 setIsStreaming(false);
               }
@@ -133,10 +144,6 @@ export default function Home() {
           }
         }
       } catch (err) {
-        if (streamIntervalRef.current) {
-          clearInterval(streamIntervalRef.current);
-          streamIntervalRef.current = null;
-        }
         setError(err instanceof Error ? err.message : 'Unknown error');
         setIsStreaming(false);
       }
@@ -147,103 +154,148 @@ export default function Home() {
   const handleRetry = useCallback(() => {
     if (lastPromptRef.current) {
       setError(null);
-      handleSubmit(lastPromptRef.current);
+      submitTurn(lastPromptRef.current);
     }
-  }, [handleSubmit]);
+  }, [submitTurn]);
 
-  // Feedback mode: iframe click handler
-  const handleFeedbackClick = useCallback(
-    (targetId: string, rect: { top: number; left: number; width: number; height: number }) => {
-      activeFeedbackTargetRef.current = { targetId };
-      // Create a pending feedback item with empty text (bubble will let user type)
-      const id = uuidv4();
-      const pendingItem: FeedbackItem = {
-        id,
-        text: '',
-        status: 'unresolved',
-        timestamp: new Date().toISOString(),
-        elementRect: rect as unknown as DOMRect,
-      };
-      setFeedbackItems((prev) => [...prev, pendingItem]);
-      setActiveBubbleId(id);
+  const handlePromptSubmit = useCallback(
+    (prompt: string) => {
+      if (!prompt.trim()) return;
+      setPromptText('');
+      submitTurn(prompt.trim());
     },
-    []
+    [submitTurn]
   );
 
-  // When user confirms feedback text in bubble
+  const handleFeedbackSubmit = useCallback(() => {
+    const text = promptText.trim() || DEFAULT_FEEDBACK_PROMPT;
+    setPromptText('');
+    setActiveBubbleId(null);
+    setIsFeedbackMode(false);
+    submitTurn(text);
+  }, [promptText, submitTurn]);
+
+  const handleFeedbackClick = useCallback((targetId: string, rect: ElementRect) => {
+    activeFeedbackTargetRef.current = { targetId };
+    const id = uuidv4();
+    const pendingItem: FeedbackItem = {
+      id,
+      text: '',
+      status: 'unresolved',
+      timestamp: new Date().toISOString(),
+      elementRect: rect,
+    };
+    setFeedbackItems((prev) => [...prev, pendingItem]);
+    setActiveBubbleId(id);
+  }, []);
+
   const handleFeedbackConfirm = useCallback(
     (id: string, text: string) => {
       const item = feedbackItems.find((f) => f.id === id);
       if (!item) return;
 
-      const iframe = iframeRef.current;
-      const contentDoc = iframe?.contentDocument;
+      const contentDoc = iframeRef.current?.contentDocument;
       if (!contentDoc) return;
 
-      // Use the targetId stored in the ref when the bubble was opened
-      const targetId = activeFeedbackTargetRef.current?.targetId ?? '';
-
-      const wrapped = wrapElementWithFeedback(contentDoc, targetId, id, text);
-      if (wrapped) {
-        const newHtml = extractHtml(contentDoc);
-        setCurrentHtml(newHtml);
+      if (!item.text) {
+        const targetId = activeFeedbackTargetRef.current?.targetId ?? '';
+        const wrapped = wrapElementWithFeedback(contentDoc, targetId, id, text, item.elementRect);
+        if (!wrapped) return;
+        activeFeedbackTargetRef.current = null;
+      } else {
+        const updated = updateFeedbackText(contentDoc, id, text);
+        if (!updated) return;
       }
 
-      setFeedbackItems((prev) =>
-        prev.map((f) => (f.id === id ? { ...f, text } : f))
-      );
-      setActiveBubbleId(null);
+      const newHtml = extractHtml(contentDoc);
+      setCurrentHtml(newHtml);
+      setFeedbackItems((prev) => prev.map((f) => (f.id === id ? { ...f, text } : f)));
+      setActiveBubbleId(id);
     },
     [feedbackItems]
   );
 
-  const handleFeedbackStatusChange = useCallback(
-    (id: string, status: 'resolved' | 'unresolved') => {
-      const iframe = iframeRef.current;
-      const contentDoc = iframe?.contentDocument;
-      if (contentDoc) {
-        setFeedbackStatus(contentDoc, id, status);
-        const newHtml = extractHtml(contentDoc);
-        setCurrentHtml(newHtml);
-      }
-      setFeedbackItems((prev) =>
-        prev.map((f) => (f.id === id ? { ...f, status } : f))
-      );
-    },
-    []
-  );
+  const handleFeedbackStatusChange = useCallback((id: string, status: 'resolved' | 'unresolved') => {
+    const contentDoc = iframeRef.current?.contentDocument;
+    if (contentDoc) {
+      setFeedbackStatus(contentDoc, id, status);
+      setCurrentHtml(extractHtml(contentDoc));
+    }
+    setFeedbackItems((prev) => prev.map((f) => (f.id === id ? { ...f, status } : f)));
+  }, []);
 
   const handleFeedbackDelete = useCallback(
     (id: string) => {
-      const iframe = iframeRef.current;
-      const contentDoc = iframe?.contentDocument;
+      const contentDoc = iframeRef.current?.contentDocument;
       if (contentDoc) {
         removeFeedback(contentDoc, id);
-        const newHtml = extractHtml(contentDoc);
-        setCurrentHtml(newHtml);
+        setCurrentHtml(extractHtml(contentDoc));
       }
       setFeedbackItems((prev) => prev.filter((f) => f.id !== id));
-      if (activeBubbleId === id) setActiveBubbleId(null);
+      if (activeBubbleId === id) {
+        setActiveBubbleId(null);
+      }
+      if (feedbackItems.find((f) => f.id === id && !f.text)) {
+        clearPendingFeedbackTarget();
+      }
     },
-    [activeBubbleId]
+    [activeBubbleId, clearPendingFeedbackTarget, feedbackItems]
   );
 
-  const handleFeedbackItemClick = useCallback((id: string) => {
-    setActiveBubbleId(id);
+  const handleFeedbackItemsChange = useCallback((items: FeedbackItem[]) => {
+    setFeedbackItems((prev) => {
+      const pending = prev.filter((item) => !item.text.trim());
+      const merged = [...items];
+
+      for (const item of pending) {
+        if (!merged.some((candidate) => candidate.id === item.id)) {
+          merged.push(item);
+        }
+      }
+
+      const isSame =
+        prev.length === merged.length &&
+        prev.every((item, index) => {
+          const next = merged[index];
+          if (!next) return false;
+
+          const sameRect =
+            item.elementRect?.top === next.elementRect?.top &&
+            item.elementRect?.left === next.elementRect?.left &&
+            item.elementRect?.width === next.elementRect?.width &&
+            item.elementRect?.height === next.elementRect?.height &&
+            item.elementRect?.bottom === next.elementRect?.bottom &&
+            item.elementRect?.right === next.elementRect?.right;
+
+          return (
+            item.id === next.id &&
+            item.text === next.text &&
+            item.status === next.status &&
+            item.timestamp === next.timestamp &&
+            sameRect
+          );
+        });
+
+      return isSame ? prev : merged;
+    });
   }, []);
 
+  const handleFeedbackItemClick = useCallback((id: string) => {
+    if (!isFeedbackMode) return;
+    setActiveBubbleId(id);
+  }, [isFeedbackMode]);
+
   const handleBubbleClose = useCallback(() => {
-    // If the bubble was for an unsaved item (empty text), remove it
     if (activeBubbleId) {
       const item = feedbackItems.find((f) => f.id === activeBubbleId);
       if (item && !item.text) {
         setFeedbackItems((prev) => prev.filter((f) => f.id !== activeBubbleId));
+        clearPendingFeedbackTarget();
       }
     }
     setActiveBubbleId(null);
-  }, [activeBubbleId, feedbackItems]);
+  }, [activeBubbleId, clearPendingFeedbackTarget, feedbackItems]);
 
-  // Version navigation
   const handleVersionSelect = useCallback(
     (index: number) => {
       if (versions[index]) {
@@ -297,15 +349,20 @@ export default function Home() {
   }, [activeBubbleId, handleBubbleClose, isFeedbackMode]);
 
   const handleKeyboardSubmit = useCallback(() => {
-    if (promptText.trim() && !isStreaming) {
-      const text = promptText.trim();
-      setPromptText('');
-      handleSubmit(text);
+    if (isStreaming) return;
+    if (isFeedbackMode) {
+      if (feedbackItems.some((item) => item.text.trim().length > 0)) {
+        handleFeedbackSubmit();
+      }
+      return;
     }
-  }, [promptText, isStreaming, handleSubmit]);
+    if (promptText.trim()) {
+      handlePromptSubmit(promptText);
+    }
+  }, [feedbackItems, handleFeedbackSubmit, handlePromptSubmit, isFeedbackMode, isStreaming, promptText]);
 
   useKeyboard({
-    onFeedbackToggle: () => setIsFeedbackMode((v) => !v),
+    onFeedbackToggle: toggleFeedbackMode,
     onSubmit: handleKeyboardSubmit,
     onEscape: handleEscape,
     onVersionPrev: handleVersionPrev,
@@ -313,11 +370,14 @@ export default function Home() {
   });
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-neutral-50 dark:bg-neutral-950">
-      <TopBar isFeedbackMode={isFeedbackMode} />
+    <div ref={appRootRef} tabIndex={-1} className="flex flex-col h-screen overflow-hidden bg-neutral-50 dark:bg-neutral-950 focus:outline-none">
+      <TopBar
+        isFeedbackMode={isFeedbackMode}
+        onViewMode={enterViewMode}
+        onFeedbackMode={enterFeedbackMode}
+      />
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Canvas — 75% */}
         <div className="w-3/4 relative overflow-hidden border-r border-neutral-200 dark:border-neutral-800">
           <CanvasPanel
             html={currentHtml}
@@ -327,24 +387,26 @@ export default function Home() {
             activeBubbleId={activeBubbleId}
             iframeRect={iframeRect}
             onFeedbackClick={handleFeedbackClick}
-            onHtmlChange={setCurrentHtml}
             onIframeRectChange={handleIframeRectChange}
+            onFeedbackItemsChange={handleFeedbackItemsChange}
+            onFeedbackToggle={toggleFeedbackMode}
+            onEscape={handleEscape}
             onFeedbackConfirm={handleFeedbackConfirm}
             onFeedbackStatusChange={handleFeedbackStatusChange}
             onFeedbackDelete={handleFeedbackDelete}
+            onBubbleOpen={handleFeedbackItemClick}
             onBubbleClose={handleBubbleClose}
           />
         </div>
 
-        {/* Right panel — 25% */}
         <div className="w-1/4 flex flex-col overflow-hidden">
           <InputPanel
-            onSubmit={handleSubmit}
+            onSubmit={handlePromptSubmit}
+            onSubmitFeedback={handleFeedbackSubmit}
             isStreaming={isStreaming}
+            isFeedbackMode={isFeedbackMode}
             feedbackItems={feedbackItems}
             onFeedbackItemClick={handleFeedbackItemClick}
-            onFeedbackStatusChange={handleFeedbackStatusChange}
-            onFeedbackDelete={handleFeedbackDelete}
             textValue={promptText}
             onTextChange={setPromptText}
           />

@@ -21,6 +21,8 @@ interface SessionEntry {
 const cache = new Map<string, SessionEntry>();
 const authStorage = AuthStorage.create();
 const modelRegistry = ModelRegistry.create(authStorage);
+const DEFAULT_MODEL_PROVIDER = 'openai-codex';
+const DEFAULT_MODEL_ID = 'gpt-5.4-mini';
 
 export async function getOrCreateClient(sessionId: string): Promise<SessionEntry> {
   if (cache.has(sessionId)) return cache.get(sessionId)!;
@@ -34,8 +36,11 @@ export async function getOrCreateClient(sessionId: string): Promise<SessionEntry
   });
   await resourceLoader.reload();
 
+  const model = modelRegistry.find(DEFAULT_MODEL_PROVIDER, DEFAULT_MODEL_ID);
+
   const { session } = await createAgentSession({
     cwd,
+    model,
     authStorage,
     modelRegistry,
     resourceLoader,

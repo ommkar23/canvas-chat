@@ -156,6 +156,9 @@ Run `npm run verify` after every non-trivial change.
 
 - If you change `next.config.ts` or server-only pi integration code, do a **full restart** of Next. Hot reload can leave a stale server process running old code.
 - If you see `Cannot find module as expression is too dynamic`, first check for a stale `next dev` / `next start` / `next-server` process before debugging new code.
+- In dev, prefer opening the app via `http://localhost:<port>`. If you use `127.0.0.1`, add it to `allowedDevOrigins` in `next.config.ts` or Turbopack HMR requests may be blocked.
+- Be careful with callback props in React effects, especially around iframe integration. Unstable callbacks in a dependency array can retrigger effects, which can retrigger state sync, causing `Maximum update depth exceeded` loops.
+- For iframe keyboard shortcuts like `F` / `Esc`, parent `window` listeners alone are not reliable once focus moves into the iframe. Attach listeners to the iframe window as well, or explicitly restore focus to the parent app shell.
 - Recommended cleanup sequence:
 
 ```bash

@@ -5,12 +5,21 @@ export interface VersionEntry {
   html: string;
 }
 
+export interface ElementRect {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+  bottom: number;
+  right: number;
+}
+
 export interface FeedbackItem {
   id: string; // e.g. "fb-001"
   text: string;
   status: 'unresolved' | 'resolved';
   timestamp: string;
-  elementRect: DOMRect | null; // position in iframe for bubble placement
+  elementRect: ElementRect | null; // anchor position for feedback dot/popup placement
 }
 
 export interface AppState {
@@ -23,12 +32,12 @@ export interface AppState {
   feedbackItems: FeedbackItem[];
   activeBubble: {
     feedbackId: string | null;
-    rect: { top: number; left: number; width: number; height: number } | null;
+    rect: ElementRect | null;
   };
   error: string | null;
 }
 
 export type SSEEvent =
-  | { type: 'delta'; html: string }
+  | { type: 'status'; message: string }
   | { type: 'done'; version: number; html: string }
   | { type: 'error'; message: string };

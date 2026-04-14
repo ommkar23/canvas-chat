@@ -2,9 +2,11 @@
 
 interface TopBarProps {
   isFeedbackMode: boolean;
+  onViewMode: () => void;
+  onFeedbackMode: () => void;
 }
 
-export function TopBar({ isFeedbackMode }: TopBarProps) {
+export function TopBar({ isFeedbackMode, onViewMode, onFeedbackMode }: TopBarProps) {
   return (
     <div
       data-testid="top-bar"
@@ -14,6 +16,30 @@ export function TopBar({ isFeedbackMode }: TopBarProps) {
         Canvas Chat
       </span>
       <div className="flex items-center gap-3">
+        <div className="inline-flex rounded-full border border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-900 p-0.5">
+          <button
+            type="button"
+            onClick={onViewMode}
+            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              !isFeedbackMode
+                ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 shadow-sm'
+                : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'
+            }`}
+          >
+            View Mode
+          </button>
+          <button
+            type="button"
+            onClick={onFeedbackMode}
+            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              isFeedbackMode
+                ? 'bg-orange-500 text-white shadow-sm'
+                : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'
+            }`}
+          >
+            Feedback Mode
+          </button>
+        </div>
         {isFeedbackMode && (
           <span
             data-testid="feedback-badge"
@@ -23,7 +49,7 @@ export function TopBar({ isFeedbackMode }: TopBarProps) {
           </span>
         )}
         <span className="text-xs text-neutral-400 dark:text-neutral-500 hidden sm:block">
-          F — feedback · ⌘↵ — generate · ⌘Z / ⌘⇧Z — versions
+          F — toggle mode · ⌘↵ — generate · ⌘Z / ⌘⇧Z — versions
         </span>
       </div>
     </div>

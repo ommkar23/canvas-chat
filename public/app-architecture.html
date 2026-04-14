@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Canvas Chat — App Architecture</title>
+    <style>
+      :root {
+        --bg: #f8fafc;
+        --panel: #ffffff;
+        --panel-soft: #f8fbff;
+        --text: #0f172a;
+        --muted: #475569;
+        --line: #dbe4f0;
+        --accent: #f97316;
+        --accent-soft: #fff7ed;
+        --blue: #0ea5e9;
+        --blue-soft: #eff8ff;
+        --green-soft: #f0fdf4;
+        --shadow: 0 20px 60px rgba(15, 23, 42, 0.08);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top left, rgba(14, 165, 233, 0.08), transparent 24%),
+          radial-gradient(circle at top right, rgba(249, 115, 22, 0.09), transparent 24%),
+          linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+      }
+
+      .wrap {
+        width: min(1160px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 36px 0 72px;
+      }
+
+      .hero,
+      .section {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+      }
+
+      .hero {
+        padding: 32px;
+      }
+
+      .section {
+        margin-top: 22px;
+        padding: 24px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: #c2410c;
+        border: 1px solid #fed7aa;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 16px 0 12px;
+        font-size: clamp(34px, 5vw, 58px);
+        line-height: 1.02;
+        letter-spacing: -0.04em;
+      }
+
+      h2 {
+        margin: 0 0 10px;
+        font-size: 26px;
+        letter-spacing: -0.03em;
+      }
+
+      h3 {
+        margin: 0 0 8px;
+        font-size: 17px;
+      }
+
+      p, li {
+        color: var(--muted);
+        line-height: 1.75;
+      }
+
+      .lede {
+        margin: 0;
+        max-width: 900px;
+        font-size: 18px;
+      }
+
+      .pill-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .pill {
+        padding: 9px 13px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: #fff;
+        color: #334155;
+        font-size: 13px;
+      }
+
+      .grid {
+        display: grid;
+        gap: 16px;
+      }
+
+      .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+      .card {
+        background: var(--panel-soft);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 18px;
+      }
+
+      .card.orange { background: #fffaf5; }
+      .card.blue { background: var(--blue-soft); }
+      .card.green { background: var(--green-soft); }
+
+      .flow {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 12px;
+        align-items: stretch;
+        margin-top: 16px;
+      }
+
+      .node {
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 16px;
+        min-height: 150px;
+      }
+
+      .label {
+        display: inline-block;
+        margin-bottom: 10px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: #f1f5f9;
+        border: 1px solid #dbe4f0;
+        color: #334155;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .node strong {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 16px;
+      }
+
+      .arrow {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--blue);
+        font-size: 28px;
+        font-weight: 800;
+      }
+
+      .timeline {
+        display: grid;
+        gap: 14px;
+        margin-top: 16px;
+      }
+
+      .step {
+        display: grid;
+        grid-template-columns: 56px 1fr;
+        gap: 14px;
+        padding: 16px;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        background: #fff;
+      }
+
+      .num {
+        width: 56px;
+        height: 56px;
+        display: grid;
+        place-items: center;
+        border-radius: 16px;
+        color: white;
+        font-weight: 800;
+        background: linear-gradient(135deg, var(--accent), #fb923c);
+        box-shadow: 0 10px 30px rgba(249, 115, 22, 0.18);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        overflow: hidden;
+        border-radius: 16px;
+        margin-top: 16px;
+      }
+
+      th, td {
+        text-align: left;
+        vertical-align: top;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      th {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #475569;
+        background: #f8fafc;
+      }
+
+      td {
+        font-size: 14px;
+        color: var(--muted);
+        background: white;
+      }
+
+      .footer-note {
+        margin-top: 18px;
+        padding: 15px 16px;
+        border-radius: 14px;
+        border: 1px solid #bfdbfe;
+        background: #eff6ff;
+        color: #1e3a8a;
+        font-size: 14px;
+      }
+
+      .mono { font-family: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace; }
+
+      @media (max-width: 980px) {
+        .grid.two,
+        .grid.three,
+        .flow {
+          grid-template-columns: 1fr;
+        }
+
+        .arrow {
+          transform: rotate(90deg);
+          min-height: 30px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <section class="hero">
+        <div class="eyebrow">Canvas Chat · Architecture overview</div>
+        <h1>A simple view of how the app works</h1>
+        <p class="lede">
+          Canvas Chat is a web app for generating and refining UI through conversation. A user describes what they want,
+          the server asks an AI coding agent to work on an HTML canvas, and the result is shown live inside a sandboxed preview.
+          Users can then leave feedback directly on the canvas, and that feedback becomes part of the next iteration.
+        </p>
+        <div class="pill-row">
+          <div class="pill">Prompt-driven UI creation</div>
+          <div class="pill">Live HTML canvas preview</div>
+          <div class="pill">Server-side AI agent</div>
+          <div class="pill">Direct on-canvas feedback</div>
+          <div class="pill">Iterative refinement loop</div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>1. Core architecture</h2>
+        <div class="flow">
+          <div class="node">
+            <div class="label">User interface</div>
+            <strong>Browser app</strong>
+            <p>The user writes prompts, views the generated canvas, switches into feedback mode, and navigates through the app experience.</p>
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">
+            <div class="label">Preview layer</div>
+            <strong>Sandboxed canvas</strong>
+            <p>The generated UI is rendered as HTML inside an isolated iframe so it can be interactive without taking over the main app.</p>
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">
+            <div class="label">Application backend</div>
+            <strong>Server routes</strong>
+            <p>The server receives prompts and feedback submissions, coordinates the AI agent, and returns updated canvas content to the browser.</p>
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">
+            <div class="label">Generation engine</div>
+            <strong>AI coding agent</strong>
+            <p>The coding agent updates the HTML canvas based on the latest user request and the current state of the project session.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>2. Main product loop</h2>
+        <div class="timeline">
+          <div class="step">
+            <div class="num">1</div>
+            <div>
+              <h3>User describes a UI change</h3>
+              <p>The flow starts with a natural-language request such as building a screen, refining a layout, or improving an interaction.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="num">2</div>
+            <div>
+              <h3>The app sends the request to the server</h3>
+              <p>The server packages the current canvas context and forwards the task to the AI agent in a server-only environment.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="num">3</div>
+            <div>
+              <h3>The AI agent updates the canvas</h3>
+              <p>The agent works on the HTML representation of the UI so the next state of the canvas stays consistent with what the user already sees.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="num">4</div>
+            <div>
+              <h3>The updated result is shown live</h3>
+              <p>The browser receives the new HTML and refreshes the sandboxed preview so the user can immediately inspect the latest output.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>3. Feedback loop</h2>
+        <div class="grid two">
+          <div class="card orange">
+            <h3>Feedback mode</h3>
+            <p>The app has a dedicated feedback mode for reviewing the canvas. In this mode, feedback markers appear on top of the generated UI and the user can add or inspect comments directly in context.</p>
+          </div>
+          <div class="card blue">
+            <h3>View mode</h3>
+            <p>Outside feedback mode, the canvas is presented cleanly as a viewing surface. Feedback controls stay hidden so the user can focus on the current design.</p>
+          </div>
+          <div class="card">
+            <h3>Floating feedback markers</h3>
+            <p>Each comment is represented as a small dot positioned near the relevant part of the canvas. Selecting a dot opens a local popup for reading or editing that feedback.</p>
+          </div>
+          <div class="card green">
+            <h3>Feedback becomes input to the next turn</h3>
+            <p>When the user submits feedback, the app sends that context back to the server so the AI agent can incorporate the requested changes into the next canvas update.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>4. Major responsibilities</h2>
+        <div class="grid three">
+          <div class="card">
+            <h3>Client</h3>
+            <p>Owns the interactive shell: prompt entry, mode switching, preview display, feedback interactions, and general app state.</p>
+          </div>
+          <div class="card">
+            <h3>Server</h3>
+            <p>Acts as the orchestration layer between the browser and the AI agent, keeping the agent runtime off the client and managing the current working session.</p>
+          </div>
+          <div class="card">
+            <h3>AI agent</h3>
+            <p>Handles the actual implementation work by updating the HTML-based canvas according to the user’s request and embedded feedback context.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>5. Representative building blocks</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Area</th>
+              <th>Role in the app</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>App shell</td>
+              <td>Coordinates the overall experience: prompting, canvas display, feedback mode, and navigation across results.</td>
+            </tr>
+            <tr>
+              <td>Canvas panel</td>
+              <td>Hosts the sandboxed iframe and the feedback overlay layer used for on-canvas review.</td>
+            </tr>
+            <tr>
+              <td>Input panel</td>
+              <td>Lets the user submit new prompts and, in feedback mode, submit a set of comments for incorporation.</td>
+            </tr>
+            <tr>
+              <td>Feedback UI</td>
+              <td>Shows floating dots and in-place popups so comments stay visually attached to the relevant elements.</td>
+            </tr>
+            <tr>
+              <td>Agent API</td>
+              <td>Connects the frontend to the server-side coding agent and returns updated HTML for the canvas.</td>
+            </tr>
+            <tr>
+              <td>Session workspace</td>
+              <td>Provides a persistent working context for each chat session so the agent can refine the canvas over multiple turns.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="section">
+        <h2>6. Key design principles</h2>
+        <div class="grid two">
+          <div class="card">
+            <h3>AI stays on the server</h3>
+            <p>The coding agent runs only in the backend. This keeps the browser lightweight and avoids exposing server-only capabilities to client components.</p>
+          </div>
+          <div class="card">
+            <h3>The canvas is isolated</h3>
+            <p>The generated UI lives in a sandboxed iframe, which makes it safer to render arbitrary HTML while still allowing rich preview behavior.</p>
+          </div>
+          <div class="card">
+            <h3>Feedback is contextual</h3>
+            <p>Comments are attached directly to the canvas instead of being managed as a completely separate review workflow.</p>
+          </div>
+          <div class="card">
+            <h3>The product is iterative by design</h3>
+            <p>Every prompt and feedback submission builds on the current canvas, making the experience feel more like collaborative editing than one-shot generation.</p>
+          </div>
+        </div>
+        <div class="footer-note">
+          <strong>In one sentence:</strong> Canvas Chat is a conversational UI-building tool where a browser-based canvas, a server-side coding agent, and a lightweight feedback workflow work together to turn prompts into iteratively refined HTML experiences.
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
