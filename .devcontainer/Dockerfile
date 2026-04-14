@@ -12,11 +12,13 @@ RUN apt-get update \
     python3 \
     python3-pip \
     python3-venv \
+    zsh \
   && rm -rf /var/lib/apt/lists/* \
   && ln -sf /usr/bin/python3 /usr/local/bin/python \
   && ln -sf /usr/bin/pip3 /usr/local/bin/pip \
   && mkdir -p "${PNPM_HOME}" \
   && corepack enable \
-  && corepack prepare pnpm@latest --activate
+  && corepack prepare pnpm@latest --activate \
+  && pnpm add -g @openai/codex @mariozechner/pi-coding-agent agent-browser
 
 WORKDIR /workspaces/apps/canvas-chat
