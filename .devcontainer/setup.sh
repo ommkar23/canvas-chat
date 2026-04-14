@@ -2,14 +2,12 @@
 set -euo pipefail
 
 CANVAS_CHAT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WORKSPACE_ROOT="$(cd "${CANVAS_CHAT_DIR}/../.." && pwd)"
+WORKSPACE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 REFERENCE_REPOS_DIR="${WORKSPACE_ROOT}/repos"
 PI_MONO_DIR="${REFERENCE_REPOS_DIR}/pi-mono"
 AGENT_BROWSER_REF_DIR="${REFERENCE_REPOS_DIR}/agent-browser"
 PI_MONO_GIT_URL="${PI_MONO_GIT_URL:-https://github.com/badlogic/pi-mono.git}"
 AGENT_BROWSER_GIT_URL="${AGENT_BROWSER_GIT_URL:-https://github.com/vercel-labs/agent-browser.git}"
-export PNPM_HOME="${HOME}/.local/share/pnpm"
-export PATH="${PNPM_HOME}:${HOME}/.local/bin:${PATH}"
 
 sync_reference_repo() {
   local name="$1"
@@ -34,75 +32,59 @@ echo "╚═══════════════════════�
 echo ""
 
 # ── 1. reference repos ────────────────────────────────────────────────────────
-echo "▶ Step 1/4 — reference repos"
+echo "▶ Step 1/5 — reference repos"
 echo "  Reference repos live under ${REFERENCE_REPOS_DIR}"
 sync_reference_repo "pi-mono" "${PI_MONO_GIT_URL}" "${PI_MONO_DIR}"
 sync_reference_repo "agent-browser" "${AGENT_BROWSER_GIT_URL}" "${AGENT_BROWSER_REF_DIR}"
 echo "  ✓ reference repos ready"
 
-# ── 2. pi-coding-agent auth ───────────────────────────────────────────────────
+# ── 2. image-installed CLIs ───────────────────────────────────────────────────
 echo ""
-echo "▶ Step 2/4 — pi-coding-agent auth"
+echo "▶ Step 2/5 — installed CLIs"
 
-AUTH_DIR="${HOME}/.pi/agent"
-AUTH_FILE="${AUTH_DIR}/auth.json"
-mkdir -p "${AUTH_DIR}"
-
-if [ -f "${AUTH_FILE}" ] && python3 -c "import json,sys; d=json.load(open('${AUTH_FILE}')); sys.exit(0 if d else 1)" 2>/dev/null; then
-  echo "  ✓ auth.json already present"
+if command -v codex &> /dev/null; then
+  echo "  ✓ codex — $(codex --version 2>/dev/null || echo 'version unknown')"
 else
-  # Write empty placeholder so pi doesn't crash before login
-  echo "{}" > "${AUTH_FILE}"
-  chmod 600 "${AUTH_FILE}"
-  echo "  ⚠ Not authenticated yet."
-  echo "    After setup, run: pi"
-  echo "    Then inside the TUI type: /login"
-  echo "    Select 'openai-codex' and complete the OAuth flow."
+  echo "  ✗ codex missing from PATH"
 fi
-
-# ── 3. agent CLIs ─────────────────────────────────────────────────────────────
-echo ""
-echo "▶ Step 3/4 — agent CLIs"
-
-echo "  Enabling pnpm via Corepack..."
-corepack enable
-mkdir -p "${PNPM_HOME}"
 
 if command -v pi &> /dev/null; then
-  echo "  pi already installed — $(pi --version 2>/dev/null || echo 'version unknown')"
+  echo "  ✓ pi — $(pi --version 2>/dev/null || echo 'version unknown')"
 else
-  echo "  Installing pi..."
-  pnpm add -g @mariozechner/pi-coding-agent 2>&1 | tail -3
+  echo "  ✗ pi missing from PATH"
 fi
-
-echo "  ✓ agent CLIs ready"
-
-# ── 4. agent-browser + Chrome ─────────────────────────────────────────────────
-echo ""
-echo "▶ Step 4/4 — agent-browser"
 
 if command -v agent-browser &> /dev/null; then
-  echo "  agent-browser already installed — $(agent-browser --version 2>/dev/null || echo 'version unknown')"
+  echo "  ✓ agent-browser — $(agent-browser --version 2>/dev/null || echo 'version unknown')"
 else
-  echo "  Installing agent-browser with pnpm..."
-  pnpm add -g agent-browser 2>&1 | tail -2
+  echo "  ✗ agent-browser missing from PATH"
 fi
 
-echo "  Installing Chrome for Testing + system deps..."
-if agent-browser install --with-deps 2>&1 | tail -5; then
-  echo "  ✓ agent-browser ready"
-else
-  echo "  ⚠ agent-browser setup failed — continue manually if you need browser verification"
-fi
+# ── 3. app dependencies ───────────────────────────────────────────────────────
+echo ""
+echo "▶ Step 3/5 — app dependencies"
+cd "${CANVAS_CHAT_DIR}"
+pnpm install
+echo "  ✓ dependencies installed"
+
+# ── 4. agent-browser deps ─────────────────────────────────────────────────────
+echo ""
+echo "▶ Step 4/5 — agent-browser browser deps"
+agent-browser install --with-deps
+echo "  ✓ agent-browser browser deps installed"
+
+# ── 5. app verification ───────────────────────────────────────────────────────
+echo ""
+echo "▶ Step 5/5 — app verification"
+pnpm lint
+pnpm run verify
+pnpm build
+echo "  ✓ lint, verify, and build passed"
 
 echo ""
 echo "══════════════════════════════════════════"
 echo "  Setup complete."
-echo "  App install and verification are manual:"
-echo "    pnpm install"
-echo "    pnpm build"
-echo "    pnpm lint"
-echo "    pnpm run verify"
+echo "  Start the app with:"
 echo "    pnpm dev"
 echo "══════════════════════════════════════════"
 echo ""
