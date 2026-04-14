@@ -1,21 +1,26 @@
-// RpcClient is not re-exported from the main index — import from the dist subpath directly.
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: deep dist import required because package.json exports map omits RpcClient
-import { RpcClient } from '@mariozechner/pi-coding-agent/dist/modes/rpc/rpc-client.js';
+import {
+  AuthStorage,
+  createAgentSession,
+  DefaultResourceLoader,
+  ModelRegistry,
+  SessionManager,
+  type AgentSession,
+} from '@mariozechner/pi-coding-agent';
 import { mkdir } from 'fs/promises';
 import path from 'path';
 import { SYSTEM_PROMPT } from './systemPrompt';
 
-const CLI_PATH = path.resolve(process.cwd(), 'node_modules/@mariozechner/pi-coding-agent/dist/cli.js');
 export const SESSIONS_DIR = path.resolve(process.cwd(), 'sessions');
 
 interface SessionEntry {
-  client: RpcClient;
+  session: AgentSession;
   versionCount: number;
   cwd: string;
 }
 
 const cache = new Map<string, SessionEntry>();
+const authStorage = AuthStorage.create();
+const modelRegistry = ModelRegistry.create(authStorage);
 
 export async function getOrCreateClient(sessionId: string): Promise<SessionEntry> {
   if (cache.has(sessionId)) return cache.get(sessionId)!;
@@ -23,16 +28,21 @@ export async function getOrCreateClient(sessionId: string): Promise<SessionEntry
   const cwd = path.join(SESSIONS_DIR, sessionId);
   await mkdir(cwd, { recursive: true });
 
-  const client = new RpcClient({
-    cliPath: CLI_PATH,
+  const resourceLoader = new DefaultResourceLoader({
     cwd,
-    args: ['--system-prompt', SYSTEM_PROMPT],
+    systemPromptOverride: () => SYSTEM_PROMPT,
+  });
+  await resourceLoader.reload();
+
+  const { session } = await createAgentSession({
+    cwd,
+    authStorage,
+    modelRegistry,
+    resourceLoader,
+    sessionManager: SessionManager.inMemory(),
   });
 
-  await client.start();
-  await client.newSession();
-
-  const entry: SessionEntry = { client, versionCount: 0, cwd };
+  const entry: SessionEntry = { session, versionCount: 0, cwd };
   cache.set(sessionId, entry);
   return entry;
 }

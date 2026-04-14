@@ -2,16 +2,7 @@ import { writeFile } from 'fs/promises';
 import path from 'path';
 import { getOrCreateClient } from '@/lib/agent/clientCache';
 import type { SSEEvent } from '@/types';
-
-// AgentEvent is from @mariozechner/pi-agent-core, a transitive dep not directly installed.
-// Use a plain structural type — we assert to specific shapes when needed inside the handler.
-interface AgentEvent {
-  type: string;
-  // Fields present on message_update events
-  assistantMessageEvent?: { type: string; delta?: string };
-  // Fields present on agent_end events
-  messages?: unknown[];
-}
+import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
 
 export async function POST(request: Request) {
   const body = await request.json() as { sessionId: string; prompt: string; contextHtml?: string };
@@ -47,8 +38,8 @@ export async function POST(request: Request) {
         .then((entry) => {
           let htmlBuffer = '';
 
-          const removeListener = entry.client.onEvent((event: AgentEvent) => {
-            if (event.type === 'message_update' && event.assistantMessageEvent) {
+          const removeListener = entry.session.subscribe((event: AgentSessionEvent) => {
+            if (event.type === 'message_update') {
               const ame = event.assistantMessageEvent;
               if (ame.type === 'text_delta' && ame.delta !== undefined) {
                 const delta = ame.delta;
@@ -67,7 +58,7 @@ export async function POST(request: Request) {
             }
           });
 
-          return entry.client.prompt(fullPrompt).catch((err: unknown) => {
+          return entry.session.prompt(fullPrompt).catch((err: unknown) => {
             removeListener();
             const message = err instanceof Error ? err.message : String(err);
             sendEvent({ type: 'error', message });
