@@ -244,7 +244,7 @@ In v1.0, the last **20 versions** are retained in memory. Older versions are evi
 
 ### 9.1 Communication Protocol
 
-pi-coding-agent runs as a **local subprocess** communicating over **stdio using newline-delimited JSON (JSONL)**. There is no HTTP server — canvas-chat spawns it as a child process via the `RpcClient` TypeScript SDK from the `@mariozechner/pi-coding-agent` package (located in `pi-mono/packages/coding-agent`).
+pi-coding-agent runs as a **local subprocess** communicating over **stdio using newline-delimited JSON (JSONL)**. There is no HTTP server — canvas-chat spawns it as a child process via the `RpcClient` TypeScript SDK from the published `@mariozechner/pi-coding-agent` package. A local `pi-mono` clone is optional and useful as source reference.
 
 **Transport:** stdin/stdout JSONL. Each message is one JSON object per line. LF (`\n`) is the only valid delimiter.
 
@@ -418,4 +418,3 @@ canvas-chat/
 - **Feedback round-trip:** Agent correctly resolves ≥80% of annotated feedback items in the next generation
 - **Version fidelity:** Any prior version can be restored to an identical canvas render
 - **Feedback persistence:** `<user-feedback>` elements survive agent re-generation without data loss
-

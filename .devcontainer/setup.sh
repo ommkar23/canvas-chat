@@ -39,16 +39,9 @@ sync_reference_repo "pi-mono" "${PI_MONO_GIT_URL}" "${PI_MONO_DIR}"
 sync_reference_repo "agent-browser" "${AGENT_BROWSER_GIT_URL}" "${AGENT_BROWSER_REF_DIR}"
 echo "  ✓ reference repos ready"
 
-# ── 2. canvas-chat dependencies ───────────────────────────────────────────────
+# ── 2. pi-coding-agent auth ───────────────────────────────────────────────────
 echo ""
-echo "▶ Step 2/5 — canvas-chat npm install"
-cd "${CANVAS_CHAT_DIR}"
-npm install --prefer-offline 2>&1 | tail -3
-echo "  ✓ dependencies installed"
-
-# ── 3. pi-coding-agent auth ───────────────────────────────────────────────────
-echo ""
-echo "▶ Step 3/5 — pi-coding-agent auth"
+echo "▶ Step 2/4 — pi-coding-agent auth"
 
 AUTH_DIR="${HOME}/.pi/agent"
 AUTH_FILE="${AUTH_DIR}/auth.json"
@@ -66,9 +59,9 @@ else
   echo "    Select 'openai-codex' and complete the OAuth flow."
 fi
 
-# ── 4. agent CLIs ─────────────────────────────────────────────────────────────
+# ── 3. agent CLIs ─────────────────────────────────────────────────────────────
 echo ""
-echo "▶ Step 4/6 — agent CLIs"
+echo "▶ Step 3/4 — agent CLIs"
 
 if command -v codex &> /dev/null; then
   echo "  codex already installed — $(codex --version 2>/dev/null || echo 'version unknown')"
@@ -79,9 +72,9 @@ fi
 
 echo "  ✓ agent CLIs ready"
 
-# ── 5. agent-browser + Chrome ─────────────────────────────────────────────────
+# ── 4. agent-browser + Chrome ─────────────────────────────────────────────────
 echo ""
-echo "▶ Step 5/6 — agent-browser"
+echo "▶ Step 4/4 — agent-browser"
 
 if command -v agent-browser &> /dev/null; then
   echo "  agent-browser already installed — $(agent-browser --version 2>/dev/null || echo 'version unknown')"
@@ -97,55 +90,12 @@ else
   echo "  ⚠ agent-browser setup failed — continue manually if you need browser verification"
 fi
 
-# ── 6. Verify ─────────────────────────────────────────────────────────────────
-echo ""
-echo "▶ Step 6/6 — verification"
-
-cd "${CANVAS_CHAT_DIR}"
-
-# Node version
-NODE_VER=$(node --version | sed 's/v//')
-NODE_MAJOR=$(echo "${NODE_VER}" | cut -d. -f1)
-if [ "${NODE_MAJOR}" -ge 20 ]; then
-  echo "  ✓ Node.js v${NODE_VER}"
-else
-  echo "  ✗ Node.js v${NODE_VER} is too old — need >= 20.6.0"
-fi
-
-# dist/cli.js
-if [ -f "${CANVAS_CHAT_DIR}/node_modules/@mariozechner/pi-coding-agent/dist/cli.js" ]; then
-  PI_AGENT_VERSION="$(node -p "require('./node_modules/@mariozechner/pi-coding-agent/package.json').version" 2>/dev/null || echo 'unknown')"
-  echo "  ✓ pi-coding-agent dist/cli.js present (${PI_AGENT_VERSION})"
-else
-  echo "  ✗ pi-coding-agent dist/cli.js missing — npm install may have failed"
-fi
-
-# Agent CLIs
-if command -v codex &> /dev/null; then
-  echo "  ✓ codex — $(codex --version 2>/dev/null || echo 'version unknown')"
-else
-  echo "  ✗ codex missing"
-fi
-
-# auth.json non-empty
-if [ -f "${AUTH_FILE}" ] && python3 -c "import json,sys; d=json.load(open('${AUTH_FILE}')); sys.exit(0 if d else 1)" 2>/dev/null; then
-  PROVIDERS=$(python3 -c "import json; d=json.load(open('${AUTH_FILE}')); print(', '.join(d.keys()) or 'none')" 2>/dev/null)
-  echo "  ✓ pi auth — providers: ${PROVIDERS}"
-else
-  echo "  ⚠ pi not authenticated — run 'pi' then /login to complete OAuth"
-fi
-
-# typecheck + lint
-echo "  Running npm run verify..."
-if npm run verify 2>&1 | tail -4; then
-  echo "  ✓ typecheck + lint passed"
-else
-  echo "  ✗ typecheck or lint failed — check output above"
-fi
-
 echo ""
 echo "══════════════════════════════════════════"
-echo "  Setup complete. Start dev server with:"
+echo "  Setup complete."
+echo "  App install and verification are manual:"
+echo "    npm install"
+echo "    npm run verify"
 echo "    npm run dev"
 echo "══════════════════════════════════════════"
 echo ""

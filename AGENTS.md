@@ -50,7 +50,7 @@ LLM
 
 ## pi-coding-agent integration
 
-The agent runs as a **local subprocess** via `RpcClient` from `@mariozechner/pi-coding-agent` (file-linked from `../../repos/pi-mono/packages/coding-agent`).
+The agent runs as a **local subprocess** via `RpcClient` from the published `@mariozechner/pi-coding-agent` npm package. A local `pi-mono` clone is optional and used only as source reference.
 
 ```typescript
 import { RpcClient } from '@mariozechner/pi-coding-agent';
@@ -189,17 +189,19 @@ node --version          # must be >= 20.6.0
 npm --version
 ```
 
-### Step 2 — Clone pi-mono (required dependency)
+### Step 2 — Clone reference repos (optional, for source inspection)
 
-`@mariozechner/pi-coding-agent` is a file-local dependency at `../../repos/pi-mono/packages/coding-agent`
-relative to this repo. The following workspace layout is required:
+The app installs `@mariozechner/pi-coding-agent` from npm. Local clones of `pi-mono`
+and `agent-browser` are optional and useful when you want to inspect upstream source.
+If you want those references beside the app, use this workspace layout:
 
 ```
 <workspace>/
 ├── apps/
 │   └── canvas-chat/   ← this repo (already cloned)
 └── repos/
-    └── pi-mono/       ← clone here
+    ├── pi-mono/
+    └── agent-browser/
 ```
 
 ```bash
@@ -207,14 +209,7 @@ relative to this repo. The following workspace layout is required:
 cd "$(dirname "$(pwd)")"      # go up to <workspace>/apps parent
 mkdir -p repos
 git clone https://github.com/badlogic/pi-mono.git repos/pi-mono
-
-# Build pi-coding-agent (required — the file dep points to dist/)
-cd repos/pi-mono/packages/coding-agent
-npm install
-npm run build
-
-# Back to canvas-chat
-cd -
+git clone https://github.com/vercel-labs/agent-browser.git repos/agent-browser
 ```
 
 ### Step 3 — Install app dependencies
@@ -224,7 +219,7 @@ cd apps/canvas-chat      # or wherever canvas-chat was cloned
 npm install
 ```
 
-This installs Next.js, React, uuid, and links `@mariozechner/pi-coding-agent` from the local pi-mono clone.
+This installs Next.js, React, uuid, and `@mariozechner/pi-coding-agent` from npm.
 
 ### Step 4 — Authenticate pi-coding-agent (Codex / OpenAI)
 
@@ -306,7 +301,7 @@ test -f ~/.pi/agent/auth.json && \
 # 5. pi-coding-agent dist/cli.js exists (needed by RpcClient)
 test -f node_modules/@mariozechner/pi-coding-agent/dist/cli.js && \
   echo "OK — dist/cli.js found" || \
-  echo "MISSING — run: cd ../../repos/pi-mono/packages/coding-agent && npm run build"
+  echo "MISSING — run: npm install"
 
 # 6. TypeScript and lint pass
 npm run verify
