@@ -21,14 +21,14 @@ PRD: `generative-ui-canvas-chat-prd.md`
 ```
 Browser (React client components)
   ↕ SSE (text/event-stream)
-app/api/agent/route.ts          ← owns RpcClient lifecycle
-  ↕ stdio JSONL
-pi-coding-agent subprocess      ← cwd = sessions/<chatId>/
+app/api/agent/route.ts          ← owns AgentSession lifecycle
+  ↕ in-process SDK calls
+pi-coding-agent SDK session     ← cwd = sessions/<chatId>/
   ↕ Codex API (pre-configured, no auth setup needed)
 LLM
 ```
 
-**One RpcClient per session.** Clients are cached in `lib/agent/clientCache.ts` in a module-level `Map`. This works in local dev mode (persistent Node.js process). Never instantiate `RpcClient` in React components or browser-side code.
+**One AgentSession per session.** Sessions are cached in `lib/agent/clientCache.ts` in a module-level `Map`. This works in local dev mode (persistent Node.js process). Never instantiate pi-coding-agent sessions in React components or browser-side code.
 
 ---
 
@@ -37,10 +37,10 @@ LLM
 | Path | Purpose |
 |---|---|
 | `app/page.tsx` | Main shell — all UI state, SSE streaming loop, feedback ops, version navigation |
-| `app/api/agent/route.ts` | POST — SSE stream from pi-coding-agent; writes `vN.html` to session dir |
+| `app/api/agent/route.ts` | POST — SSE stream from pi-coding-agent SDK session; writes `vN.html` to session dir |
 | `app/api/sessions/route.ts` | POST — creates session UUID + folder under `sessions/` |
-| `lib/agent/clientCache.ts` | Module-level RpcClient cache keyed by sessionId |
-| `lib/agent/systemPrompt.ts` | HTML-generation system prompt injected via `--system-prompt` CLI arg |
+| `lib/agent/clientCache.ts` | Module-level `AgentSession` cache keyed by sessionId |
+| `lib/agent/systemPrompt.ts` | HTML-generation system prompt injected via SDK resource loader override |
 | `lib/feedback/htmlEncoder.ts` | Wraps/unwraps iframe elements with `<user-feedback>` in the live DOM |
 | `lib/feedback/overlayScript.ts` | Script injected into iframe `contentDocument` when feedback mode activates |
 | `components/shell/CanvasPanel.tsx` | Sandboxed iframe + feedback overlay injection + bubble positioning |
@@ -50,32 +50,49 @@ LLM
 
 ## pi-coding-agent integration
 
-The agent runs as a **local subprocess** via `RpcClient` from the published `@mariozechner/pi-coding-agent` npm package. A local `pi-mono` clone is optional and used only as source reference.
+The app uses the **published SDK API** from `@mariozechner/pi-coding-agent`, not private deep imports from `dist/` and not a local `pi-mono` source checkout.
 
 ```typescript
-import { RpcClient } from '@mariozechner/pi-coding-agent';
+import {
+  AuthStorage,
+  createAgentSession,
+  DefaultResourceLoader,
+  ModelRegistry,
+  SessionManager,
+} from '@mariozechner/pi-coding-agent';
 
-const client = new RpcClient({
-  cliPath: '/abs/path/to/node_modules/@mariozechner/pi-coding-agent/dist/cli.js',
+const authStorage = AuthStorage.create();
+const modelRegistry = ModelRegistry.create(authStorage);
+
+const resourceLoader = new DefaultResourceLoader({
   cwd: '/abs/path/to/sessions/<chatId>',
-  args: ['--system-prompt', SYSTEM_PROMPT],
+  systemPromptOverride: () => SYSTEM_PROMPT,
+});
+await resourceLoader.reload();
+
+const { session } = await createAgentSession({
+  cwd: '/abs/path/to/sessions/<chatId>',
+  authStorage,
+  modelRegistry,
+  resourceLoader,
+  sessionManager: SessionManager.inMemory(),
 });
 
-await client.start();
-await client.newSession();
-await client.prompt(message);  // non-blocking — events fire via onEvent
-
-client.onEvent((event) => {
-  if (event.type === 'message_update' && event.assistantMessageEvent?.type === 'text_delta') {
-    accumulate(event.assistantMessageEvent.delta);  // streaming HTML chunks
+session.subscribe((event) => {
+  if (event.type === 'message_update' && event.assistantMessageEvent.type === 'text_delta') {
+    accumulate(event.assistantMessageEvent.delta); // streaming HTML chunks
   }
   if (event.type === 'agent_end') { /* finalize */ }
 });
+
+await session.prompt(message);
 ```
 
 **Auth:** pre-configured with Codex login — no API keys or env vars needed.
 
-**CLI path:** always absolute path to `dist/cli.js` inside `node_modules`. The default `"dist/cli.js"` is relative to `cwd` (session folder) and breaks.
+**Next.js 16 requirement:** keep `serverExternalPackages: ['@mariozechner/pi-coding-agent']` in `next.config.ts`. Without this, Next/Turbopack may try to bundle pi internals and fail on optional native deps.
+
+**Do not** deep-import internal pi files like `@mariozechner/pi-coding-agent/dist/...`. Those are not part of the supported package surface and led to build/runtime failures.
 
 ---
 
@@ -134,6 +151,19 @@ npm run verify    # tsc --noEmit && eslint
 ```
 
 Run `npm run verify` after every non-trivial change.
+
+### Integration learnings
+
+- If you change `next.config.ts` or server-only pi integration code, do a **full restart** of Next. Hot reload can leave a stale server process running old code.
+- If you see `Cannot find module as expression is too dynamic`, first check for a stale `next dev` / `next start` / `next-server` process before debugging new code.
+- Recommended cleanup sequence:
+
+```bash
+pkill -f 'next dev|next start|next-server'
+rm -rf .next
+pnpm build
+pnpm start
+```
 
 ---
 
