@@ -8,7 +8,8 @@ PI_MONO_DIR="${REFERENCE_REPOS_DIR}/pi-mono"
 AGENT_BROWSER_REF_DIR="${REFERENCE_REPOS_DIR}/agent-browser"
 PI_MONO_GIT_URL="${PI_MONO_GIT_URL:-https://github.com/badlogic/pi-mono.git}"
 AGENT_BROWSER_GIT_URL="${AGENT_BROWSER_GIT_URL:-https://github.com/vercel-labs/agent-browser.git}"
-export PATH="${HOME}/.local/bin:${PATH}"
+export PNPM_HOME="${HOME}/.local/share/pnpm"
+export PATH="${PNPM_HOME}:${HOME}/.local/bin:${PATH}"
 
 sync_reference_repo() {
   local name="$1"
@@ -33,7 +34,7 @@ echo "╚═══════════════════════�
 echo ""
 
 # ── 1. reference repos ────────────────────────────────────────────────────────
-echo "▶ Step 1/5 — reference repos"
+echo "▶ Step 1/4 — reference repos"
 echo "  Reference repos live under ${REFERENCE_REPOS_DIR}"
 sync_reference_repo "pi-mono" "${PI_MONO_GIT_URL}" "${PI_MONO_DIR}"
 sync_reference_repo "agent-browser" "${AGENT_BROWSER_GIT_URL}" "${AGENT_BROWSER_REF_DIR}"
@@ -63,11 +64,15 @@ fi
 echo ""
 echo "▶ Step 3/4 — agent CLIs"
 
-if command -v codex &> /dev/null; then
-  echo "  codex already installed — $(codex --version 2>/dev/null || echo 'version unknown')"
+echo "  Enabling pnpm via Corepack..."
+corepack enable
+mkdir -p "${PNPM_HOME}"
+
+if command -v pi &> /dev/null; then
+  echo "  pi already installed — $(pi --version 2>/dev/null || echo 'version unknown')"
 else
-  echo "  Installing Codex CLI..."
-  npm install -g @openai/codex@latest 2>&1 | tail -3
+  echo "  Installing pi..."
+  pnpm add -g @mariozechner/pi-coding-agent 2>&1 | tail -3
 fi
 
 echo "  ✓ agent CLIs ready"
@@ -79,8 +84,8 @@ echo "▶ Step 4/4 — agent-browser"
 if command -v agent-browser &> /dev/null; then
   echo "  agent-browser already installed — $(agent-browser --version 2>/dev/null || echo 'version unknown')"
 else
-  echo "  Installing agent-browser globally..."
-  npm install -g agent-browser 2>&1 | tail -2
+  echo "  Installing agent-browser with pnpm..."
+  pnpm add -g agent-browser 2>&1 | tail -2
 fi
 
 echo "  Installing Chrome for Testing + system deps..."
@@ -94,8 +99,10 @@ echo ""
 echo "══════════════════════════════════════════"
 echo "  Setup complete."
 echo "  App install and verification are manual:"
-echo "    npm install"
-echo "    npm run verify"
-echo "    npm run dev"
+echo "    pnpm install"
+echo "    pnpm build"
+echo "    pnpm lint"
+echo "    pnpm run verify"
+echo "    pnpm dev"
 echo "══════════════════════════════════════════"
 echo ""

@@ -1,10 +1,12 @@
 {
   "name": "Canvas Chat",
-  "image": "mcr.microsoft.com/devcontainers/universal:2",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/apps/canvas-chat,type=bind,consistency=cached",
   "workspaceFolder": "/workspaces/apps/canvas-chat",
 
-  // Match the workspace layout expected by the file: dependency in package.json.
+  // Match the workspace layout expected by the repo and keep sibling references in /workspaces/repos.
   "initializeCommand": "true",
   "postCreateCommand": ".devcontainer/setup.sh",
 
@@ -28,7 +30,8 @@
   },
 
   "remoteEnv": {
-    // Uncomment and set if using an API key instead of OAuth (PI_AUTH_JSON takes priority)
-    // "OPENAI_API_KEY": "${localEnv:OPENAI_API_KEY}"
+    "NVM_DIR": "/usr/local/share/nvm",
+    "PNPM_HOME": "/usr/local/share/pnpm",
+    "PATH": "/usr/local/share/pnpm:/usr/local/share/nvm/versions/node/v24.14.1/bin:${containerEnv:PATH}"
   }
 }
